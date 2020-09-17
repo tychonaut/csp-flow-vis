@@ -29,11 +29,18 @@ TODO: for setup of infrastructure (saving Simon's local stuff to own forked and 
 
 
 TODO: recreate minimalistic initial plugin functionality that worked locally on Simon's ubuntu laptop:
-- [ ] write this list
+- [ ] check how to create plungin- local cmake and generate appropriate header and shared libs
+- [ ] remember/lookup how to use plugin in mai app, how to configure stuff, where to put data used by plugin
+- [ ] run local test of plugin
+- [ ] develop mechanism (rsync or scp) to efficiently copy user data from develop or master machine to cluster
+- [ ] adapt cluster config for csp-flow-vis plugin
+- [ ] upload binaries and config to dome
+- [ ] test run in dome
 
 TODO: implement the actual functionality from the rough framework
-- [ ] write this list
-
+- [ ] determine specifi TODOs from insights gathered from above steps, then write this list
+- [ ] ...
+- [ ] test run in dome
 
 
 
