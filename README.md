@@ -46,3 +46,28 @@ TODO: implement the actual functionality from the rough framework
 
 
 
+## Configuration
+
+This plugin can be enabled with the following configuration in your `settings.json`:
+
+```javascript
+{
+  ...
+  "plugins": {
+    ...
+    "csp-flow-vis": {
+      "TODO...": {
+        <anchor name>: {
+          "texture": <path to surface texture>
+        },
+        ... <more bodies> ...
+      }
+    }
+  }
+}
+```
+
+
+
+
+
