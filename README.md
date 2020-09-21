@@ -21,7 +21,7 @@ TODO: for setup of infrastructure (saving Simon's local stuff to own forked and 
       from existing  **cluster** configs ("flow_vis_cluster" profile)
 - [ ] perform local test run with GEBCO stuff
 - [ ] perform local test runs with map-cache'd stuff (helgoland, mars ..)
-- [ ] MultiOSCluster: implement mechanism for config-copy from profile folder (MultiOSCluster repo) 
+- [x] MultiOSCluster: implement mechanism for config-copy from profile folder (MultiOSCluster repo) 
       to local installation folder, analogous to 
       `./appControl/rsyncAppConfigToCluster.sh CosmoScoutVR`
       extend existing script functionality, then create small wrapper script
