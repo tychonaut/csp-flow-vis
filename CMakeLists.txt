@@ -10,6 +10,9 @@ if (NOT CSP_FLOW_VIS)
   return()
 endif()
 
+
+find_package(GLUT REQUIRED)
+
 # build plugin -------------------------------------------------------------------------------------
 
 file(GLOB SOURCE_FILES src/*.cpp)
@@ -25,6 +28,7 @@ add_library(csp-flow-vis SHARED
 target_link_libraries(csp-flow-vis
   PUBLIC
     cs-core
+	glu32
 )
 
 # Add this Plugin to a "plugins" folder in your IDE.
