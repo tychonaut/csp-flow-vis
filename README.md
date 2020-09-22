@@ -37,7 +37,8 @@ TODO: recreate minimalistic initial plugin functionality that worked locally on 
 - [ ] remember/lookup how to use plugin in main app, how to configure stuff, where to put data used by plugin
       (csp-flow-vis is dervied from csp-simple-bodies)
 - [ ] run local test of plugin
-- [ ] develop mechanism (rsync or scp) to efficiently copy user data from develop or master machine to cluster
+- [ ] develop mechanism (rsync or scp) to efficiently copy app asset/resource data from develop or master machine to cluster:
+       experiment with rsync-deletion-flags, maybe eventually NAS (though windows remote shell policies may be a problem) 
 - [ ] adapt cluster config for csp-flow-vis plugin
 - [ ] upload binaries and config to dome
 - [ ] test run in dome
