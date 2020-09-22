@@ -41,6 +41,10 @@ TODO: recreate minimalistic initial plugin functionality that worked locally on 
 - [ ] adapt cluster config for csp-flow-vis plugin
 - [ ] upload binaries and config to dome
 - [ ] test run in dome
+- [ ] checkout implications of correction from  
+      `gdaladdo step$STEP.tif 2 4 8` to 
+      `gdaladdo step_$STEP.tif 2 4 8`: expecting mipmaps, elping in webservers, but not for opengl,
+      which has to build its own mip maps, right?
 
 TODO: implement the actual functionality from the rough framework
 - [ ] determine specifi TODOs from insights gathered from above steps, then write this list
