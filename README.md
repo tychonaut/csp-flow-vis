@@ -34,7 +34,8 @@ TODO: for setup of infrastructure (saving Simon's local stuff to own forked and 
 
 TODO: recreate minimalistic initial plugin functionality that worked locally on Simon's ubuntu laptop:
 - [ ] check how to create plungin- local cmake and generate appropriate header and shared libs
-- [ ] remember/lookup how to use plugin in mai app, how to configure stuff, where to put data used by plugin
+- [ ] remember/lookup how to use plugin in main app, how to configure stuff, where to put data used by plugin
+      (csp-flow-vis is dervied from csp-simple-bodies)
 - [ ] run local test of plugin
 - [ ] develop mechanism (rsync or scp) to efficiently copy user data from develop or master machine to cluster
 - [ ] adapt cluster config for csp-flow-vis plugin
