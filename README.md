@@ -21,11 +21,15 @@ TODO: for setup of infrastructure (saving Simon's local stuff to own forked and 
       from existing  **cluster** configs ("flow_vis_cluster" profile)
 - [ ] perform local test run with GEBCO stuff
 - [ ] perform local test runs with map-cache'd stuff (helgoland, mars ..)
+- [ ] create graphs and notes about compilation/deployment/config-syncing/launch (WIP)
+- [ ] create graphs and notes about config and asset/resource data (WIP)
 - [x] MultiOSCluster: implement mechanism for config-copy from profile folder (MultiOSCluster repo) 
       to local installation folder, analogous to 
       `./appControl/rsyncAppConfigToCluster.sh CosmoScoutVR`
       extend existing script functionality, then create small wrapper script
 - [ ] set up visual studio code accourding to CS doc
+- [ ] check data-read-in of csp-flow-vis: point to D:\app_data\global\CosmoScoutVR\plugin-data\csp-flow-vis\flow-data-simon
+      via flow_vis.json -> deserialize -> ...
 
 
 TODO: recreate minimalistic initial plugin functionality that worked locally on Simon's ubuntu laptop:
