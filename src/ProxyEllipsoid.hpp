@@ -22,6 +22,12 @@ class Settings;
 class SolarSystem;
 } // namespace cs::core
 
+
+namespace cs::scene {
+  class CelestialObserver;
+} // namespace cs::scene
+
+
 namespace csp::flowvis {
 
 /// This is just a sphere with a texture, attached to the given SPICE frame. The texture should be
@@ -39,6 +45,8 @@ class ProxyEllipsoid : public cs::scene::CelestialObject, public IVistaOpenGLDra
   ProxyEllipsoid& operator=(ProxyEllipsoid&& other) = default;
 
   ~ProxyEllipsoid() override;
+
+  void update(double tTime, cs::scene::CelestialObserver const& oObs) override;
 
   /// Configures the internal renderer according to the given values.
   void setTifDirectory(std::string const& tifDirectory);
@@ -68,10 +76,9 @@ class ProxyEllipsoid : public cs::scene::CelestialObject, public IVistaOpenGLDra
   VistaBufferObject      mSphereIBO;
 
   glm::dvec3 mRadii;
-  double     mStartDate;
-  double     mEndDate;
   glm::vec4  mBounds;
   int        mNumTimeSteps;
+  double     mCurrentTime;
 
   bool mShaderDirty              = true;
   int  mEnableLightingConnection = -1;

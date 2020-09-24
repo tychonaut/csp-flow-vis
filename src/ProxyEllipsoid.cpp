@@ -13,6 +13,8 @@
 #include "../../../src/cs-utils/FrameTimings.hpp"
 #include "../../../src/cs-utils/convert.hpp"
 #include "../../../src/cs-utils/utils.hpp"
+#include "../../../src/cs-utils/convert.hpp"
+
 
 #include <VistaKernel/GraphicsManager/VistaSceneGraph.h>
 #include <VistaKernel/GraphicsManager/VistaTransformNode.h>
@@ -146,7 +148,9 @@ ProxyEllipsoid::ProxyEllipsoid(std::shared_ptr<cs::core::Settings> settings,
     , mSettings(std::move(settings))
     , mSolarSystem(std::move(solarSystem))
     , mRadii(cs::core::SolarSystem::getRadii(sCenterName))
-    , mNumTimeSteps(numTimeSteps) {
+    , mNumTimeSteps(numTimeSteps) 
+    //TODO check for consitency with program startup:
+    , mCurrentTime(tStartExistence) {
   pVisibleRadius = mRadii[0];
 
   // For rendering the sphere, we create a 2D-grid which is warped into a sphere in the vertex
@@ -210,6 +214,17 @@ ProxyEllipsoid::~ProxyEllipsoid() {
 
   VistaSceneGraph* pSG = GetVistaSystem()->GetGraphicsManager()->GetSceneGraph();
   pSG->GetRoot()->DisconnectChild(mGLNode.get());
+
+}
+
+void ProxyEllipsoid::update(double tTime, cs::scene::CelestialObserver const& oObs) {
+  
+  logger().debug("ProxyEllipsoid::update at time " + std::to_string(tTime));
+
+  CelestialObject::update(tTime, oObs);
+
+  mCurrentTime = tTime;
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -220,7 +235,7 @@ void ProxyEllipsoid::setTifDirectory(std::string const& tifDirectory) {
   mVectorTextures.clear();
   //for (int timestep = 0; timestep < mNumTimeSteps; timestep++) {
   // TODO investigate why no 0 is spit out by the resampling scpripts
-  for (int timestep = 1; timestep < mNumTimeSteps; timestep++) {
+  for (int timestep = 1; timestep <= mNumTimeSteps; timestep++) {
 
     mVectorTextures.push_back(std::make_unique<VistaTexture>(GL_TEXTURE_2D));
     mVectorTextures.back()->Bind();
@@ -311,11 +326,14 @@ void ProxyEllipsoid::setTifDirectory(std::string const& tifDirectory) {
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void ProxyEllipsoid::setStartDate(std::string const& startDate) {
+
+    mStartExistence = cs::utils::convert::time::toSpice(startDate);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void ProxyEllipsoid::setEndDate(std::string const& endDate) {
+  mEndExistence = cs::utils::convert::time::toSpice(endDate);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -399,7 +417,15 @@ bool ProxyEllipsoid::Do() {
   mShader.SetUniform(
       mShader.GetUniformLocation("uFarClip"), cs::utils::getCurrentFarClipDistance());
 
-  mVectorTextures[0]->Bind(GL_TEXTURE0);
+  // in [0..1]
+  double relativeTime = ( (mCurrentTime - mStartExistence)) / (mEndExistence - mStartExistence);
+  //relativeTime = std::clamp(relativeTime, 0.0, 0.999);
+  int currentTextureIndex = std::clamp(static_cast<int>( std::floor(relativeTime * static_cast<double>(mNumTimeSteps)) ), 0, mNumTimeSteps-1); 
+
+  logger().debug("relativeTime: " + std::to_string(relativeTime));
+  logger().debug("currentTextureIndex: " + std::to_string(currentTextureIndex));
+
+  mVectorTextures[currentTextureIndex]->Bind(GL_TEXTURE0);
 
   // Draw.
   mSphereVAO.Bind();
@@ -408,7 +434,7 @@ bool ProxyEllipsoid::Do() {
   mSphereVAO.Release();
 
   // Clean up.
-  mVectorTextures[0]->Unbind(GL_TEXTURE0);
+  mVectorTextures[currentTextureIndex]->Unbind(GL_TEXTURE0);
   mShader.Release();
 
   return true;
