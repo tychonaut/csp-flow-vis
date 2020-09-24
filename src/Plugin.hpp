@@ -26,6 +26,7 @@ class Plugin : public cs::core::PluginBase {
     float       mWest;
     float       mNorth;
     float       mSouth;
+    int         mNumTimeSteps;
   };
 
   void init() override;

@@ -41,6 +41,7 @@ void from_json(nlohmann::json const& j, Plugin::Settings& o) {
   cs::core::Settings::deserialize(j, "west", o.mWest);
   cs::core::Settings::deserialize(j, "north", o.mNorth);
   cs::core::Settings::deserialize(j, "south", o.mSouth);
+  cs::core::Settings::deserialize(j, "numTimeSteps", o.mNumTimeSteps);
 }
 
 void to_json(nlohmann::json& j, Plugin::Settings const& o) {
@@ -52,6 +53,7 @@ void to_json(nlohmann::json& j, Plugin::Settings const& o) {
   cs::core::Settings::serialize(j, "west", o.mWest);
   cs::core::Settings::serialize(j, "north", o.mNorth);
   cs::core::Settings::serialize(j, "south", o.mSouth);
+  cs::core::Settings::serialize(j, "numTimeSteps", o.mNumTimeSteps);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -99,7 +101,7 @@ void Plugin::onLoad() {
   auto [tStartExistence, tEndExistence] = anchor->second.getExistence();
 
   mProxyEllipsoid = std::make_shared<ProxyEllipsoid>(mAllSettings, mSolarSystem,
-      anchor->second.mCenter, anchor->second.mFrame, tStartExistence, tEndExistence);
+      anchor->second.mCenter, anchor->second.mFrame, tStartExistence, tEndExistence, mPluginSettings.mNumTimeSteps);
 
   mProxyEllipsoid->setTifDirectory(mPluginSettings.mTifDirectory);
   mProxyEllipsoid->setStartDate(mPluginSettings.mStartDate);

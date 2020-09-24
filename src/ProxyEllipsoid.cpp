@@ -141,11 +141,12 @@ void main()
 
 ProxyEllipsoid::ProxyEllipsoid(std::shared_ptr<cs::core::Settings> settings,
     std::shared_ptr<cs::core::SolarSystem> solarSystem, std::string const& sCenterName,
-    std::string const& sFrameName, double tStartExistence, double tEndExistence)
+    std::string const& sFrameName, double tStartExistence, double tEndExistence, int numTimeSteps)
     : cs::scene::CelestialObject(sCenterName, sFrameName, tStartExistence, tEndExistence)
     , mSettings(std::move(settings))
     , mSolarSystem(std::move(solarSystem))
-    , mRadii(cs::core::SolarSystem::getRadii(sCenterName)) {
+    , mRadii(cs::core::SolarSystem::getRadii(sCenterName))
+    , mNumTimeSteps(numTimeSteps) {
   pVisibleRadius = mRadii[0];
 
   // For rendering the sphere, we create a 2D-grid which is warped into a sphere in the vertex
@@ -215,12 +216,62 @@ ProxyEllipsoid::~ProxyEllipsoid() {
 
 void ProxyEllipsoid::setTifDirectory(std::string const& tifDirectory) {
 
+  assert(mVectorTextures.empty);
+  mVectorTextures.clear();
+  //for (int timestep = 0; timestep < mNumTimeSteps; timestep++) {
+  // TODO investigate why no 0 is spit out by the resampling scpripts
+  for (int timestep = 1; timestep < mNumTimeSteps; timestep++) {
+
+    mVectorTextures.push_back(std::make_unique<VistaTexture>(GL_TEXTURE_2D));
+    mVectorTextures.back()->Bind();
+
+    auto currentFilePath = tifDirectory + "/step_" + std::to_string(timestep) + ".tif";
+
+    auto* data = TIFFOpen(currentFilePath.c_str(), "r");
+    if (!data) {
+      logger().error("Failed to load GeoTiff '" + currentFilePath + "'!");
+      return;
+    } else {
+      logger().info("Read GeoTiff '" + currentFilePath + "'");
+    }
+
+    uint32 width{};
+    uint32 height{};
+    TIFFGetField(data, TIFFTAG_IMAGELENGTH, &height);
+    TIFFGetField(data, TIFFTAG_IMAGEWIDTH, &width);
+
+    uint16 bpp{};
+    TIFFGetField(data, TIFFTAG_BITSPERSAMPLE, &bpp);
+
+    int16 channels{};
+    TIFFGetField(data, TIFFTAG_SAMPLESPERPIXEL, &channels);
+
+    std::vector<float> pixels(width * height * channels);
+
+    for (unsigned y = 0; y < height; y++) {
+      if (TIFFReadScanline(data, &pixels[width * channels * y], y) < 0) {
+        logger().error("Failed to read tif!");
+      }
+    }
+    logger().info("{} {}", width, height);
+
+    gluBuild2DMipmaps(GL_TEXTURE_2D, GL_RGBA32F, width, height, GL_RGB, GL_FLOAT, pixels.data());
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+
+    TIFFClose(data);
+    mVectorTextures.back()->Unbind();
+
+  }
+
+  /*
+
   mVectorTexture = std::make_unique<VistaTexture>(GL_TEXTURE_2D);
   mVectorTexture->Bind();
 
-  // auto* data =
-  //     TIFFOpen("/home/simon/Projects/cosmoscout/cosmoscout-vr/resources/textures/brdfLUT.tif",
-  //     "r");
+
+
+
+
   auto* data = TIFFOpen((tifDirectory + "/step_1.tif").c_str(), "r");
   if (!data) {
     logger().error("Failed to load with libtiff!");
@@ -252,6 +303,9 @@ void ProxyEllipsoid::setTifDirectory(std::string const& tifDirectory) {
 
   TIFFClose(data);
   mVectorTexture->Unbind();
+
+  */
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -345,7 +399,7 @@ bool ProxyEllipsoid::Do() {
   mShader.SetUniform(
       mShader.GetUniformLocation("uFarClip"), cs::utils::getCurrentFarClipDistance());
 
-  mVectorTexture->Bind(GL_TEXTURE0);
+  mVectorTextures[0]->Bind(GL_TEXTURE0);
 
   // Draw.
   mSphereVAO.Bind();
@@ -354,7 +408,7 @@ bool ProxyEllipsoid::Do() {
   mSphereVAO.Release();
 
   // Clean up.
-  mVectorTexture->Unbind(GL_TEXTURE0);
+  mVectorTextures[0]->Unbind(GL_TEXTURE0);
   mShader.Release();
 
   return true;

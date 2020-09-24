@@ -30,7 +30,7 @@ class ProxyEllipsoid : public cs::scene::CelestialObject, public IVistaOpenGLDra
  public:
   ProxyEllipsoid(std::shared_ptr<cs::core::Settings> settings,
       std::shared_ptr<cs::core::SolarSystem> solarSystem, std::string const& sCenterName,
-      std::string const& sFrameName, double tStartExistence, double tEndExistence);
+      std::string const& sFrameName, double tStartExistence, double tEndExistence, int numTimeSteps);
 
   ProxyEllipsoid(ProxyEllipsoid const& other) = delete;
   ProxyEllipsoid(ProxyEllipsoid&& other)      = default;
@@ -59,7 +59,8 @@ class ProxyEllipsoid : public cs::scene::CelestialObject, public IVistaOpenGLDra
   std::shared_ptr<const cs::scene::CelestialObject> mSun;
 
   std::unique_ptr<VistaOpenGLNode> mGLNode;
-  std::unique_ptr<VistaTexture>    mVectorTexture;
+  std::vector<std::unique_ptr<VistaTexture>> mVectorTextures;
+  //std::unique_ptr<VistaTexture>    mVectorTexture;
 
   VistaGLSLShader        mShader;
   VistaVertexArrayObject mSphereVAO;
@@ -70,6 +71,7 @@ class ProxyEllipsoid : public cs::scene::CelestialObject, public IVistaOpenGLDra
   double     mStartDate;
   double     mEndDate;
   glm::vec4  mBounds;
+  int        mNumTimeSteps;
 
   bool mShaderDirty              = true;
   int  mEnableLightingConnection = -1;
