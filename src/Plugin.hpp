@@ -18,6 +18,7 @@ class ProxyEllipsoid;
 class Plugin : public cs::core::PluginBase {
  public:
   struct Settings {
+    bool        mIsEnabled;
     std::string mAnchor;
     std::string mTifDirectory;
     std::string mStartDate;
@@ -27,6 +28,8 @@ class Plugin : public cs::core::PluginBase {
     float       mNorth;
     float       mSouth;
     int         mNumTimeSteps;
+    float       mFlowSpeedScale;
+    float       mParticleSeedThreshold;
   };
 
   void init() override;

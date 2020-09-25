@@ -36,7 +36,12 @@ class ProxyEllipsoid : public cs::scene::CelestialObject, public IVistaOpenGLDra
  public:
   ProxyEllipsoid(std::shared_ptr<cs::core::Settings> settings,
       std::shared_ptr<cs::core::SolarSystem> solarSystem, std::string const& sCenterName,
-      std::string const& sFrameName, double tStartExistence, double tEndExistence, int numTimeSteps);
+      std::string const& sFrameName, 
+      double tStartExistence, double tEndExistence, 
+      bool isEnabled,
+      int numTimeSteps,
+      double flowSpeedScale, 
+      double particleSeedThreshold);
 
   ProxyEllipsoid(ProxyEllipsoid const& other) = delete;
   ProxyEllipsoid(ProxyEllipsoid&& other)      = default;
@@ -67,6 +72,8 @@ class ProxyEllipsoid : public cs::scene::CelestialObject, public IVistaOpenGLDra
   std::shared_ptr<const cs::scene::CelestialObject> mSun;
 
   std::unique_ptr<VistaOpenGLNode> mGLNode;
+
+  // TODO switch this to a 3D texture;
   std::vector<std::unique_ptr<VistaTexture>> mVectorTextures;
   //std::unique_ptr<VistaTexture>    mVectorTexture;
 
@@ -75,10 +82,15 @@ class ProxyEllipsoid : public cs::scene::CelestialObject, public IVistaOpenGLDra
   VistaBufferObject      mSphereVBO;
   VistaBufferObject      mSphereIBO;
 
+
+
+  bool       mEnabled = true;
   glm::dvec3 mRadii;
   glm::vec4  mBounds;
   int        mNumTimeSteps;
   double     mCurrentTime;
+  double     mFlowSpeedScale;
+  double     mParticleSeedThreshold;
 
   bool mShaderDirty              = true;
   int  mEnableLightingConnection = -1;

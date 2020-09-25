@@ -89,7 +89,22 @@ void main()
 const char* ProxyEllipsoid::SPHERE_FRAG = R"(
 uniform vec3 uSunDirection;
 uniform vec4 uBounds;
+
+//interpolatable stack of 2D textures == 2D + time dimension == 2+1 D == 3D
+uniform sampler3D uVectorTextures;
+// point in time to sample the stack of flow-textures;
+uniform float     uRelativeTime;
+// time interval to "Newton integrate" since last visual render frame:
+uniform float     uDurationSinceLastFrame;
+// non-physical, user-definable scale factor in order to make the flow speeds visually distinguishable
+uniform float     uFlowSpeedScale;
+
+// The least recently updated "random particle ping-pong image".
+// (The other one is the current render target.)
+uniform sampler2D uParticlesImage;
+
 uniform sampler2D uVectorTexture;
+
 uniform float uAmbientBrightness;
 uniform float uSunIlluminance;
 uniform float uFarClip;
@@ -141,16 +156,30 @@ void main()
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-ProxyEllipsoid::ProxyEllipsoid(std::shared_ptr<cs::core::Settings> settings,
-    std::shared_ptr<cs::core::SolarSystem> solarSystem, std::string const& sCenterName,
-    std::string const& sFrameName, double tStartExistence, double tEndExistence, int numTimeSteps)
-    : cs::scene::CelestialObject(sCenterName, sFrameName, tStartExistence, tEndExistence)
+ProxyEllipsoid::ProxyEllipsoid(
+    std::shared_ptr<cs::core::Settings> settings,
+    std::shared_ptr<cs::core::SolarSystem> solarSystem, 
+    std::string const& sCenterName,
+    std::string const& sFrameName,
+    double tStartExistence, 
+    double tEndExistence, 
+    bool isEnabled, 
+    int numTimeSteps, 
+    double flowSpeedScale,
+    double particleSeedThreshold)
+    : 
+    cs::scene::CelestialObject(sCenterName, sFrameName, tStartExistence, tEndExistence)
     , mSettings(std::move(settings))
     , mSolarSystem(std::move(solarSystem))
+    , mEnabled(isEnabled)
     , mRadii(cs::core::SolarSystem::getRadii(sCenterName))
+    , mBounds(glm::vec4(0.0f, 0.0f, 0.0f, 0.0f))
     , mNumTimeSteps(numTimeSteps) 
     //TODO check for consitency with program startup:
-    , mCurrentTime(tStartExistence) {
+    , mCurrentTime(tStartExistence) 
+    , mFlowSpeedScale(flowSpeedScale)
+    , mParticleSeedThreshold(particleSeedThreshold)
+{
   pVisibleRadius = mRadii[0];
 
   // For rendering the sphere, we create a 2D-grid which is warped into a sphere in the vertex
@@ -355,6 +384,11 @@ bool ProxyEllipsoid::Do() {
     return true;
   }
 
+  // reported 16384 on Quadro RTX 5000; Should be enough for 2700x2700x73;
+  GLint maxTexSize = 0;
+  glGetIntegerv(GL_MAX_3D_TEXTURE_SIZE, & maxTexSize );
+  logger().debug("maxTexSize: " + std::to_string(maxTexSize));
+
   cs::utils::FrameTimings::ScopedTimer timer("Flow Vis");
 
   if (mShaderDirty) {
@@ -419,11 +453,31 @@ bool ProxyEllipsoid::Do() {
 
   // in [0..1]
   double relativeTime = ( (mCurrentTime - mStartExistence)) / (mEndExistence - mStartExistence);
+  
+  mShader.SetUniform(mShader.GetUniformLocation("uRelativeTime"), static_cast<float>(relativeTime));
+
+  /*
+  //interpolatable stack of 2D textures == 2D + time dimension == 2+1 D == 3D
+uniform sampler3D uVectorTextures;
+
+// time interval to "Newton integrate" since last visual render frame:
+uniform float     uDurationSinceLastFrame;
+// non-physical, user-definable scale factor in order to make the flow speeds visually distinguishable
+uniform float     uFlowSpeedScale;
+
+// The least recently updated "random particle ping-pong image".
+// (The other one is the current render target.)
+uniform sampler2D uParticlesImage;
+  */
+
+
+  
+  
   //relativeTime = std::clamp(relativeTime, 0.0, 0.999);
   int currentTextureIndex = std::clamp(static_cast<int>( std::floor(relativeTime * static_cast<double>(mNumTimeSteps)) ), 0, mNumTimeSteps-1); 
 
-  logger().debug("relativeTime: " + std::to_string(relativeTime));
-  logger().debug("currentTextureIndex: " + std::to_string(currentTextureIndex));
+  //logger().debug("relativeTime: " + std::to_string(relativeTime));
+  //logger().debug("currentTextureIndex: " + std::to_string(currentTextureIndex));
 
   mVectorTextures[currentTextureIndex]->Bind(GL_TEXTURE0);
 

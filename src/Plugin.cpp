@@ -33,6 +33,7 @@ namespace csp::flowvis {
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void from_json(nlohmann::json const& j, Plugin::Settings& o) {
+  cs::core::Settings::deserialize(j, "isEnabled", o.mIsEnabled);
   cs::core::Settings::deserialize(j, "anchor", o.mAnchor);
   cs::core::Settings::deserialize(j, "tifDirectory", o.mTifDirectory);
   cs::core::Settings::deserialize(j, "startDate", o.mStartDate);
@@ -42,9 +43,13 @@ void from_json(nlohmann::json const& j, Plugin::Settings& o) {
   cs::core::Settings::deserialize(j, "north", o.mNorth);
   cs::core::Settings::deserialize(j, "south", o.mSouth);
   cs::core::Settings::deserialize(j, "numTimeSteps", o.mNumTimeSteps);
+  cs::core::Settings::deserialize(j, "flowSpeedScale", o.mFlowSpeedScale);
+  cs::core::Settings::deserialize(j, "particleSeedThreshold", o.mParticleSeedThreshold);
+
 }
 
 void to_json(nlohmann::json& j, Plugin::Settings const& o) {
+  cs::core::Settings::serialize(j, "isEnabled", o.mIsEnabled);
   cs::core::Settings::serialize(j, "anchor", o.mAnchor);
   cs::core::Settings::serialize(j, "tifDirectory", o.mTifDirectory);
   cs::core::Settings::serialize(j, "startDate", o.mStartDate);
@@ -54,6 +59,8 @@ void to_json(nlohmann::json& j, Plugin::Settings const& o) {
   cs::core::Settings::serialize(j, "north", o.mNorth);
   cs::core::Settings::serialize(j, "south", o.mSouth);
   cs::core::Settings::serialize(j, "numTimeSteps", o.mNumTimeSteps);
+  cs::core::Settings::serialize(j, "flowSpeedScale", o.mFlowSpeedScale);
+  cs::core::Settings::serialize(j, "particleSeedThreshold", o.mParticleSeedThreshold);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -100,14 +107,26 @@ void Plugin::onLoad() {
 
   auto [tStartExistence, tEndExistence] = anchor->second.getExistence();
 
-  mProxyEllipsoid = std::make_shared<ProxyEllipsoid>(mAllSettings, mSolarSystem,
-      anchor->second.mCenter, anchor->second.mFrame, tStartExistence, tEndExistence, mPluginSettings.mNumTimeSteps);
+  mProxyEllipsoid = std::make_shared<ProxyEllipsoid>(
+      mAllSettings, 
+      mSolarSystem,
+      anchor->second.mCenter,
+      anchor->second.mFrame,
+      tStartExistence, 
+      tEndExistence, 
+      mPluginSettings.mIsEnabled,
+      mPluginSettings.mNumTimeSteps,
+      mPluginSettings.mFlowSpeedScale, 
+      mPluginSettings.mParticleSeedThreshold);
 
   mProxyEllipsoid->setTifDirectory(mPluginSettings.mTifDirectory);
   mProxyEllipsoid->setStartDate(mPluginSettings.mStartDate);
   mProxyEllipsoid->setEndDate(mPluginSettings.mEndDate);
-  mProxyEllipsoid->setBounds(glm::vec4(mPluginSettings.mNorth, mPluginSettings.mEast,
-      mPluginSettings.mSouth, mPluginSettings.mWest));
+  mProxyEllipsoid->setBounds(
+      glm::vec4(
+          mPluginSettings.mNorth, mPluginSettings.mEast,
+          mPluginSettings.mSouth, mPluginSettings.mWest));
+
   mProxyEllipsoid->setSun(mSolarSystem->getSun());
 
   mSolarSystem->registerAnchor(mProxyEllipsoid);
