@@ -68,6 +68,9 @@ class ProxyEllipsoid : public cs::scene::CelestialObject, public IVistaOpenGLDra
 
  private:
   std::shared_ptr<cs::core::Settings>               mSettings;
+
+
+
   std::shared_ptr<cs::core::SolarSystem>            mSolarSystem;
   std::shared_ptr<const cs::scene::CelestialObject> mSun;
 
@@ -77,7 +80,8 @@ class ProxyEllipsoid : public cs::scene::CelestialObject, public IVistaOpenGLDra
   std::vector<std::unique_ptr<VistaTexture>> mVectorTextures;
   //std::unique_ptr<VistaTexture>    mVectorTexture;
 
-  VistaGLSLShader        mShader;
+
+
   VistaVertexArrayObject mSphereVAO;
   VistaBufferObject      mSphereVBO;
   VistaBufferObject      mSphereIBO;
@@ -92,7 +96,10 @@ class ProxyEllipsoid : public cs::scene::CelestialObject, public IVistaOpenGLDra
   double     mFlowSpeedScale;
   double     mParticleSeedThreshold;
 
-  bool mShaderDirty              = true;
+
+  VistaGLSLShader mPixelDisplaceShader;
+  bool            mPixelDisplaceShaderDirty = true;
+  //some lighting variables (from copypasted simplebodies-plugin)
   int  mEnableLightingConnection = -1;
   int  mEnableHDRConnection      = -1;
 

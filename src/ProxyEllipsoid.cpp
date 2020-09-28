@@ -224,9 +224,9 @@ ProxyEllipsoid::ProxyEllipsoid(
 
   // Recreate the shader if lighting or HDR rendering mode are toggled.
   mEnableLightingConnection = mSettings->mGraphics.pEnableLighting.connect(
-      [this](bool /*enabled*/) { mShaderDirty = true; });
+      [this](bool /*enabled*/) { mPixelDisplaceShaderDirty = true; });
   mEnableHDRConnection =
-      mSettings->mGraphics.pEnableHDR.connect([this](bool /*enabled*/) { mShaderDirty = true; });
+      mSettings->mGraphics.pEnableHDR.connect([this](bool /*enabled*/) { mPixelDisplaceShaderDirty = true; });
 
   // Add to scenegraph.
   VistaSceneGraph* pSG = GetVistaSystem()->GetGraphicsManager()->GetSceneGraph();
@@ -391,8 +391,8 @@ bool ProxyEllipsoid::Do() {
 
   cs::utils::FrameTimings::ScopedTimer timer("Flow Vis");
 
-  if (mShaderDirty) {
-    mShader = VistaGLSLShader();
+  if (mPixelDisplaceShaderDirty) {
+    mPixelDisplaceShader = VistaGLSLShader();
 
     // (Re-)create sphere shader.
     std::string defines = "#version 330\n";
@@ -405,14 +405,14 @@ bool ProxyEllipsoid::Do() {
       defines += "#define ENABLE_LIGHTING\n";
     }
 
-    mShader.InitVertexShaderFromString(defines + SPHERE_VERT);
-    mShader.InitFragmentShaderFromString(defines + SPHERE_FRAG);
-    mShader.Link();
+    mPixelDisplaceShader.InitVertexShaderFromString(defines + SPHERE_VERT);
+    mPixelDisplaceShader.InitFragmentShaderFromString(defines + SPHERE_FRAG);
+    mPixelDisplaceShader.Link();
 
-    mShaderDirty = false;
+    mPixelDisplaceShaderDirty = false;
   }
 
-  mShader.Bind();
+  mPixelDisplaceShader.Bind();
 
   glm::vec3 sunDirection(1, 0, 0);
   float     sunIlluminance(1.F);
@@ -427,10 +427,10 @@ bool ProxyEllipsoid::Do() {
     sunDirection = mSolarSystem->getSunDirection(getWorldTransform()[3]);
   }
 
-  mShader.SetUniform(mShader.GetUniformLocation("uSunDirection"), sunDirection[0], sunDirection[1],
+  mPixelDisplaceShader.SetUniform(mPixelDisplaceShader.GetUniformLocation("uSunDirection"), sunDirection[0], sunDirection[1],
       sunDirection[2]);
-  mShader.SetUniform(mShader.GetUniformLocation("uSunIlluminance"), sunIlluminance);
-  mShader.SetUniform(mShader.GetUniformLocation("uAmbientBrightness"), ambientBrightness);
+  mPixelDisplaceShader.SetUniform(mPixelDisplaceShader.GetUniformLocation("uSunIlluminance"), sunIlluminance);
+  mPixelDisplaceShader.SetUniform(mPixelDisplaceShader.GetUniformLocation("uAmbientBrightness"), ambientBrightness);
 
   // Get modelview and projection matrices.
   std::array<GLfloat, 16> glMatMV{};
@@ -439,22 +439,22 @@ bool ProxyEllipsoid::Do() {
   glGetFloatv(GL_PROJECTION_MATRIX, glMatP.data());
   auto matMV = glm::make_mat4x4(glMatMV.data()) * glm::mat4(getWorldTransform());
   glUniformMatrix4fv(
-      mShader.GetUniformLocation("uMatModelView"), 1, GL_FALSE, glm::value_ptr(matMV));
-  glUniformMatrix4fv(mShader.GetUniformLocation("uMatProjection"), 1, GL_FALSE, glMatP.data());
+      mPixelDisplaceShader.GetUniformLocation("uMatModelView"), 1, GL_FALSE, glm::value_ptr(matMV));
+  glUniformMatrix4fv(mPixelDisplaceShader.GetUniformLocation("uMatProjection"), 1, GL_FALSE, glMatP.data());
 
-  mShader.SetUniform(mShader.GetUniformLocation("uVectorTexture"), 0);
-  mShader.SetUniform(mShader.GetUniformLocation("uBounds"),
+  mPixelDisplaceShader.SetUniform(mPixelDisplaceShader.GetUniformLocation("uVectorTexture"), 0);
+  mPixelDisplaceShader.SetUniform(mPixelDisplaceShader.GetUniformLocation("uBounds"),
       cs::utils::convert::toRadians(mBounds[0]), cs::utils::convert::toRadians(mBounds[1]),
       cs::utils::convert::toRadians(mBounds[2]), cs::utils::convert::toRadians(mBounds[3]));
-  mShader.SetUniform(mShader.GetUniformLocation("uRadii"), static_cast<float>(mRadii[0]),
+  mPixelDisplaceShader.SetUniform(mPixelDisplaceShader.GetUniformLocation("uRadii"), static_cast<float>(mRadii[0]),
       static_cast<float>(mRadii[1]), static_cast<float>(mRadii[2]));
-  mShader.SetUniform(
-      mShader.GetUniformLocation("uFarClip"), cs::utils::getCurrentFarClipDistance());
+  mPixelDisplaceShader.SetUniform(
+      mPixelDisplaceShader.GetUniformLocation("uFarClip"), cs::utils::getCurrentFarClipDistance());
 
   // in [0..1]
   double relativeTime = ( (mCurrentTime - mStartExistence)) / (mEndExistence - mStartExistence);
   
-  mShader.SetUniform(mShader.GetUniformLocation("uRelativeTime"), static_cast<float>(relativeTime));
+  mPixelDisplaceShader.SetUniform(mPixelDisplaceShader.GetUniformLocation("uRelativeTime"), static_cast<float>(relativeTime));
 
   /*
   //interpolatable stack of 2D textures == 2D + time dimension == 2+1 D == 3D
@@ -489,7 +489,7 @@ uniform sampler2D uParticlesImage;
 
   // Clean up.
   mVectorTextures[currentTextureIndex]->Unbind(GL_TEXTURE0);
-  mShader.Release();
+  mPixelDisplaceShader.Release();
 
   return true;
 }
