@@ -10,6 +10,7 @@
 #include <VistaKernel/GraphicsManager/VistaOpenGLDraw.h>
 #include <VistaKernel/GraphicsManager/VistaOpenGLNode.h>
 #include <VistaOGLExt/VistaBufferObject.h>
+#include <VistaOGLExt/VistaFramebufferObj.h>
 #include <VistaOGLExt/VistaGLSLShader.h>
 #include <VistaOGLExt/VistaTexture.h>
 #include <VistaOGLExt/VistaVertexArrayObject.h>
@@ -56,6 +57,7 @@ class ProxyEllipsoid : public cs::scene::CelestialObject, public IVistaOpenGLDra
   void setEndDate(std::string const& endDate);
   void setBounds(glm::vec4 const& bounds);
 
+
   /// The sun object is used for lighting computation.
   void setSun(std::shared_ptr<const cs::scene::CelestialObject> const& sun);
 
@@ -73,11 +75,9 @@ class ProxyEllipsoid : public cs::scene::CelestialObject, public IVistaOpenGLDra
 
   std::unique_ptr<VistaOpenGLNode> mGLNode;
 
-  // TODO switch this to a 3D texture;
-  std::vector<std::unique_ptr<VistaTexture>> mVelocity2DTextureArray;
-  std::unique_ptr<VistaTexture>              mVelocity3DTexture;
-
-
+  
+  //------------------------------------
+  // Ellipsoid renders stuff:
 
   VistaVertexArrayObject mSphereVAO;
   VistaBufferObject      mSphereVBO;
@@ -85,11 +85,6 @@ class ProxyEllipsoid : public cs::scene::CelestialObject, public IVistaOpenGLDra
 
   glm::dvec3 mRadii;
   glm::vec4  mBounds;
-
-  //bool       mEnabled = true;
-  //int        mNumTimeSteps;
-  //double     mFlowSpeedScale;
-  //double     mParticleSeedThreshold;
 
   double mCurrentTime;
   // needed fordifference building, for FPS-independent animation speed
@@ -103,6 +98,40 @@ class ProxyEllipsoid : public cs::scene::CelestialObject, public IVistaOpenGLDra
 
   static const char* SPHERE_VERT;
   static const char* SPHERE_FRAG;
+
+
+  //------------------------------------
+  // Velocity vectors stuff:
+
+  // TODO delete 2D texture
+  std::vector<std::unique_ptr<VistaTexture>> mVelocity2DTextureArray;
+
+  std::unique_ptr<VistaTexture> mVelocity3DTexture;
+
+
+  //------------------------------------
+  // Particle texture stuff:
+
+  // render routines:
+  //void initParticleTexture();
+  //void reseedParticleTexture();
+  //void updateParticleTexture();
+
+  //fullscreen quad rendering:
+  VistaVertexArrayObject    mQuadVAO;
+  VistaBufferObject         mQuadVBO;
+
+  //offscreen render target:
+  VistaFramebufferObj       mFBO;
+  GLuint                        currentRenderTargetIndex = 0;
+  std::unique_ptr<VistaTexture> mParticlePingPongTexture[2];
+
+  VistaGLSLShader           mSeedAndDisplaceParticlesShader;
+
+  //static const char* PARTICLES_SEED_AND_DISPLACE_VERT;
+  //static const char* PARTICLES_SEED_AND_DISPLACE_FRAG;
+
+
 };
 
 } // namespace csp::flowvis
