@@ -156,29 +156,21 @@ void main()
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-ProxyEllipsoid::ProxyEllipsoid(
-    std::shared_ptr<cs::core::Settings> settings,
-    std::shared_ptr<cs::core::SolarSystem> solarSystem, 
-    std::string const& sCenterName,
-    std::string const& sFrameName,
-    double tStartExistence, 
-    double tEndExistence, 
-    bool isEnabled, 
-    int numTimeSteps, 
-    double flowSpeedScale,
-    double particleSeedThreshold)
+ProxyEllipsoid::ProxyEllipsoid(std::shared_ptr<cs::core::Settings> programSettings,
+    std::shared_ptr<csp::flowvis::Plugin::Settings>                pluginSettings,
+    std::shared_ptr<cs::core::SolarSystem> solarSystem, std::string const& sCenterName,
+    std::string const& sFrameName)
     : 
-    cs::scene::CelestialObject(sCenterName, sFrameName, tStartExistence, tEndExistence)
-    , mSettings(std::move(settings))
+    cs::scene::CelestialObject(sCenterName, sFrameName)
+    , mProgramSettings(std::move(programSettings))
+    , mPluginSettings(std::move(pluginSettings))
     , mSolarSystem(std::move(solarSystem))
-    , mEnabled(isEnabled)
     , mRadii(cs::core::SolarSystem::getRadii(sCenterName))
     , mBounds(glm::vec4(0.0f, 0.0f, 0.0f, 0.0f))
-    , mNumTimeSteps(numTimeSteps) 
     //TODO check for consitency with program startup:
-    , mCurrentTime(tStartExistence) 
-    , mFlowSpeedScale(flowSpeedScale)
-    , mParticleSeedThreshold(particleSeedThreshold)
+    //dummy value:
+    , mCurrentTime(cs::utils::convert::time::toSpice(mPluginSettings->mStartDate)) 
+
 {
   pVisibleRadius = mRadii[0];
 
@@ -223,10 +215,10 @@ ProxyEllipsoid::ProxyEllipsoid(
   mSphereVBO.Release();
 
   // Recreate the shader if lighting or HDR rendering mode are toggled.
-  mEnableLightingConnection = mSettings->mGraphics.pEnableLighting.connect(
+  mEnableLightingConnection = mProgramSettings->mGraphics.pEnableLighting.connect(
       [this](bool /*enabled*/) { mPixelDisplaceShaderDirty = true; });
-  mEnableHDRConnection =
-      mSettings->mGraphics.pEnableHDR.connect([this](bool /*enabled*/) { mPixelDisplaceShaderDirty = true; });
+  mEnableHDRConnection =  mProgramSettings->mGraphics.pEnableHDR.connect(
+      [this](bool /*enabled*/) { mPixelDisplaceShaderDirty = true; });
 
   // Add to scenegraph.
   VistaSceneGraph* pSG = GetVistaSystem()->GetGraphicsManager()->GetSceneGraph();
@@ -238,8 +230,8 @@ ProxyEllipsoid::ProxyEllipsoid(
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 ProxyEllipsoid::~ProxyEllipsoid() {
-  mSettings->mGraphics.pEnableLighting.disconnect(mEnableLightingConnection);
-  mSettings->mGraphics.pEnableHDR.disconnect(mEnableHDRConnection);
+  mProgramSettings->mGraphics.pEnableLighting.disconnect(mEnableLightingConnection);
+  mProgramSettings->mGraphics.pEnableHDR.disconnect(mEnableHDRConnection);
 
   VistaSceneGraph* pSG = GetVistaSystem()->GetGraphicsManager()->GetSceneGraph();
   pSG->GetRoot()->DisconnectChild(mGLNode.get());
@@ -264,7 +256,7 @@ void ProxyEllipsoid::setTifDirectory(std::string const& tifDirectory) {
   mVectorTextures.clear();
   //for (int timestep = 0; timestep < mNumTimeSteps; timestep++) {
   // TODO investigate why no 0 is spit out by the resampling scpripts
-  for (int timestep = 1; timestep <= mNumTimeSteps; timestep++) {
+  for (int timestep = 1; timestep <= mPluginSettings->mNumTimeSteps; timestep++) {
 
     mVectorTextures.push_back(std::make_unique<VistaTexture>(GL_TEXTURE_2D));
     mVectorTextures.back()->Bind();
@@ -397,11 +389,11 @@ bool ProxyEllipsoid::Do() {
     // (Re-)create sphere shader.
     std::string defines = "#version 330\n";
 
-    if (mSettings->mGraphics.pEnableHDR.get()) {
+    if (mProgramSettings->mGraphics.pEnableHDR.get()) {
       defines += "#define ENABLE_HDR\n";
     }
 
-    if (mSettings->mGraphics.pEnableLighting.get()) {
+    if (mProgramSettings->mGraphics.pEnableLighting.get()) {
       defines += "#define ENABLE_LIGHTING\n";
     }
 
@@ -416,11 +408,11 @@ bool ProxyEllipsoid::Do() {
 
   glm::vec3 sunDirection(1, 0, 0);
   float     sunIlluminance(1.F);
-  float     ambientBrightness(mSettings->mGraphics.pAmbientBrightness.get());
+  float     ambientBrightness(mProgramSettings->mGraphics.pAmbientBrightness.get());
 
   if (mSun) {
     // For all other bodies we can use the utility methods from the SolarSystem.
-    if (mSettings->mGraphics.pEnableHDR.get()) {
+    if (mProgramSettings->mGraphics.pEnableHDR.get()) {
       sunIlluminance = static_cast<float>(mSolarSystem->getSunIlluminance(getWorldTransform()[3]));
     }
 
@@ -474,7 +466,10 @@ uniform sampler2D uParticlesImage;
   
   
   //relativeTime = std::clamp(relativeTime, 0.0, 0.999);
-  int currentTextureIndex = std::clamp(static_cast<int>( std::floor(relativeTime * static_cast<double>(mNumTimeSteps)) ), 0, mNumTimeSteps-1); 
+  int currentTextureIndex = std::clamp(
+      static_cast<int>(
+          std::floor(relativeTime * static_cast<double>(mPluginSettings->mNumTimeSteps))),
+      0, mPluginSettings->mNumTimeSteps - 1); 
 
   //logger().debug("relativeTime: " + std::to_string(relativeTime));
   //logger().debug("currentTextureIndex: " + std::to_string(currentTextureIndex));

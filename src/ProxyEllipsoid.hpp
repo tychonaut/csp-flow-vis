@@ -34,14 +34,11 @@ namespace csp::flowvis {
 /// in equirectangular projection.
 class ProxyEllipsoid : public cs::scene::CelestialObject, public IVistaOpenGLDraw {
  public:
-  ProxyEllipsoid(std::shared_ptr<cs::core::Settings> settings,
-      std::shared_ptr<cs::core::SolarSystem> solarSystem, std::string const& sCenterName,
-      std::string const& sFrameName, 
-      double tStartExistence, double tEndExistence, 
-      bool isEnabled,
-      int numTimeSteps,
-      double flowSpeedScale, 
-      double particleSeedThreshold);
+  ProxyEllipsoid(std::shared_ptr<cs::core::Settings> programSettings,
+      std::shared_ptr<csp::flowvis::Plugin::Settings> pluginSettings,
+      std::shared_ptr<cs::core::SolarSystem> solarSystem, 
+      std::string const& sCenterName,
+      std::string const& sFrameName);
 
   ProxyEllipsoid(ProxyEllipsoid const& other) = delete;
   ProxyEllipsoid(ProxyEllipsoid&& other)      = default;
@@ -67,8 +64,8 @@ class ProxyEllipsoid : public cs::scene::CelestialObject, public IVistaOpenGLDra
   bool GetBoundingBox(VistaBoundingBox& bb) override;
 
  private:
-  std::shared_ptr<cs::core::Settings>               mSettings;
-
+  std::shared_ptr<cs::core::Settings>               mProgramSettings;
+  std::shared_ptr<csp::flowvis::Plugin::Settings>   mPluginSettings;
 
 
   std::shared_ptr<cs::core::SolarSystem>            mSolarSystem;
@@ -86,15 +83,15 @@ class ProxyEllipsoid : public cs::scene::CelestialObject, public IVistaOpenGLDra
   VistaBufferObject      mSphereVBO;
   VistaBufferObject      mSphereIBO;
 
-
-
-  bool       mEnabled = true;
   glm::dvec3 mRadii;
   glm::vec4  mBounds;
-  int        mNumTimeSteps;
-  double     mCurrentTime;
-  double     mFlowSpeedScale;
-  double     mParticleSeedThreshold;
+
+  //bool       mEnabled = true;
+  //int        mNumTimeSteps;
+  //double     mFlowSpeedScale;
+  //double     mParticleSeedThreshold;
+
+  double mCurrentTime;
 
 
   VistaGLSLShader mPixelDisplaceShader;

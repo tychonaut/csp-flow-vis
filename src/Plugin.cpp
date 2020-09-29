@@ -69,9 +69,13 @@ void Plugin::init() {
 
   logger().info("Loading plugin...");
 
+  if (mPluginSettings == nullptr) {
+    mPluginSettings = std::make_shared<Settings>();
+  }
+
   mOnLoadConnection = mAllSettings->onLoad().connect([this]() { onLoad(); });
   mOnSaveConnection = mAllSettings->onSave().connect(
-      [this]() { mAllSettings->mPlugins["csp-flow-vis"] = mPluginSettings; });
+      [this]() { mAllSettings->mPlugins["csp-flow-vis"] = *mPluginSettings; });
 
   // Load settings.
   onLoad();
@@ -95,37 +99,41 @@ void Plugin::deInit() {
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void Plugin::onLoad() {
-  // Read settings from JSON.
-  from_json(mAllSettings->mPlugins.at("csp-flow-vis"), mPluginSettings);
 
-  auto anchor = mAllSettings->mAnchors.find(mPluginSettings.mAnchor);
+  if (mPluginSettings == nullptr) {
+    mPluginSettings = std::make_shared<Settings>();
+  }
+  
+  // Read settings from JSON.
+  from_json(mAllSettings->mPlugins.at("csp-flow-vis"), *mPluginSettings);
+
+  auto anchor = mAllSettings->mAnchors.find(mPluginSettings->mAnchor);
 
   if (anchor == mAllSettings->mAnchors.end()) {
     throw std::runtime_error(
-        "There is no Anchor \"" + mPluginSettings.mAnchor + "\" defined in the settings.");
+        "There is no Anchor \"" + mPluginSettings->mAnchor + "\" defined in the settings.");
   }
 
   auto [tStartExistence, tEndExistence] = anchor->second.getExistence();
 
   mProxyEllipsoid = std::make_shared<ProxyEllipsoid>(
-      mAllSettings, 
-      mSolarSystem,
-      anchor->second.mCenter,
-      anchor->second.mFrame,
-      tStartExistence, 
-      tEndExistence, 
-      mPluginSettings.mIsEnabled,
-      mPluginSettings.mNumTimeSteps,
-      mPluginSettings.mFlowSpeedScale, 
-      mPluginSettings.mParticleSeedThreshold);
+      mAllSettings, mPluginSettings, mSolarSystem, anchor->second.mCenter, anchor->second.mFrame);
+      //mAllSettings, 
+      //mSolarSystem,
+      //tStartExistence, 
+      //tEndExistence, 
+      //mPluginSettings->mIsEnabled,
+      //mPluginSettings->mNumTimeSteps,
+      //mPluginSettings->mFlowSpeedScale, 
+      //mPluginSettings->mParticleSeedThreshold);
 
-  mProxyEllipsoid->setTifDirectory(mPluginSettings.mTifDirectory);
-  mProxyEllipsoid->setStartDate(mPluginSettings.mStartDate);
-  mProxyEllipsoid->setEndDate(mPluginSettings.mEndDate);
+  mProxyEllipsoid->setTifDirectory(mPluginSettings->mTifDirectory);
+  mProxyEllipsoid->setStartDate(mPluginSettings->mStartDate);
+  mProxyEllipsoid->setEndDate(mPluginSettings->mEndDate);
   mProxyEllipsoid->setBounds(
       glm::vec4(
-          mPluginSettings.mNorth, mPluginSettings.mEast,
-          mPluginSettings.mSouth, mPluginSettings.mWest));
+          mPluginSettings->mNorth, mPluginSettings->mEast,
+          mPluginSettings->mSouth, mPluginSettings->mWest));
 
   mProxyEllipsoid->setSun(mSolarSystem->getSun());
 

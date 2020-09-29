@@ -38,7 +38,7 @@ class Plugin : public cs::core::PluginBase {
  private:
   void onLoad();
 
-  Settings                        mPluginSettings;
+  std::shared_ptr<Settings>       mPluginSettings;
   std::shared_ptr<ProxyEllipsoid> mProxyEllipsoid;
 
   int mOnLoadConnection = -1;
