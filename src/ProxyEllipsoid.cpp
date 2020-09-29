@@ -130,10 +130,16 @@ void main()
       discard;
     }
 
-    vec2 texcoords = vec2((vLngLat.x - uBounds.w) / (uBounds.y - uBounds.w),
-                      1 - (vLngLat.y - uBounds.z) / (uBounds.x - uBounds.z));
-
-    oColor = texture(uVelocity2DTexture, texcoords).rgb;
+    //vec2 texcoords = vec2((vLngLat.x - uBounds.w) / (uBounds.y - uBounds.w),
+    //                  1 - (vLngLat.y - uBounds.z) / (uBounds.x - uBounds.z));
+    //oColor = texture(uVelocity2DTexture, texcoords).rgb;
+    
+    vec3 texcoords = vec3((vLngLat.x - uBounds.w) / (uBounds.y - uBounds.w),
+                      1 - (vLngLat.y - uBounds.z) / (uBounds.x - uBounds.z),
+                      8.0 * uRelativeTime);
+                      
+    //uRelativeTime
+    oColor = texture(uVelocity3DTexture, texcoords).rgb;
 
     oColor.rg = (oColor.rg/4) + 0.25;
     oColor.b = (oColor.b/30);
@@ -356,6 +362,8 @@ void ProxyEllipsoid::loadVelocityTifFiles(std::string const& tifDirectory) {
   mVelocity3DTexture->Bind();
   glTexImage3D(GL_TEXTURE_3D, 0, GL_RGBA32F, width, height, mPluginSettings->mNumTimeSteps, 0,
       GL_RGB, GL_FLOAT, pixels3D.data());
+  glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  mVelocity3DTexture->Unbind();
 
   /*
 
