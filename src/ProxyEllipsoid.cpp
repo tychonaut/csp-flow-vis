@@ -175,7 +175,8 @@ void main()
 ProxyEllipsoid::ProxyEllipsoid(std::shared_ptr<cs::core::Settings> programSettings,
     std::shared_ptr<csp::flowvis::Plugin::Settings>                pluginSettings,
     std::shared_ptr<cs::core::GuiManager>                          pGuiManager,
-    std::shared_ptr<cs::core::SolarSystem> solarSystem, std::string const& sCenterName,
+    std::shared_ptr<cs::core::SolarSystem> solarSystem, 
+    std::string const& sCenterName,
     std::string const& sFrameName)
     : 
     cs::scene::CelestialObject(sCenterName, sFrameName)
@@ -192,6 +193,18 @@ ProxyEllipsoid::ProxyEllipsoid(std::shared_ptr<cs::core::Settings> programSettin
 
 {
   initEllipsoidGeometry();
+
+  setStartDate(mPluginSettings->mStartDate);
+  setEndDate(mPluginSettings->mEndDate);
+  setBounds(glm::vec4(mPluginSettings->mNorth, mPluginSettings->mEast,
+      mPluginSettings->mSouth, mPluginSettings->mWest));
+  setSun(mSolarSystem->getSun());
+
+
+
+  //TODO outsource to FlowRenderer
+  loadVelocityTifFiles(mPluginSettings->mTifDirectory);
+
 
   mFlowRenderer = std::make_unique<FlowRenderer>(programSettings, pluginSettings, pGuiManager);
 

@@ -121,26 +121,24 @@ void Plugin::onLoad() {
 
   mProxyEllipsoid = std::make_shared<ProxyEllipsoid>(
       mAllSettings, mPluginSettings, mGuiManager, mSolarSystem, anchor->second.mCenter, anchor->second.mFrame);
-      //mAllSettings, 
-      //mSolarSystem,
-      //tStartExistence, 
-      //tEndExistence, 
-      //mPluginSettings->mIsEnabled,
-      //mPluginSettings->mNumTimeSteps,
-      //mPluginSettings->mFlowSpeedScale, 
-      //mPluginSettings->mParticleSeedThreshold);
 
-  mProxyEllipsoid->loadVelocityTifFiles(mPluginSettings->mTifDirectory);
-  mProxyEllipsoid->setStartDate(mPluginSettings->mStartDate);
-  mProxyEllipsoid->setEndDate(mPluginSettings->mEndDate);
-  mProxyEllipsoid->setBounds(
-      glm::vec4(
-          mPluginSettings->mNorth, mPluginSettings->mEast,
-          mPluginSettings->mSouth, mPluginSettings->mWest));
-
-  mProxyEllipsoid->setSun(mSolarSystem->getSun());
+  //outsourced to ctr of ProxyEllipsoid:
+  //mProxyEllipsoid->loadVelocityTifFiles(mPluginSettings->mTifDirectory);
+  //
+  //mProxyEllipsoid->setStartDate(mPluginSettings->mStartDate);
+  //mProxyEllipsoid->setEndDate(mPluginSettings->mEndDate);
+  //mProxyEllipsoid->setBounds(
+  //    glm::vec4(
+  //        mPluginSettings->mNorth, mPluginSettings->mEast,
+  //        mPluginSettings->mSouth, mPluginSettings->mWest));
+  //mProxyEllipsoid->setSun(mSolarSystem->getSun());
 
   mSolarSystem->registerAnchor(mProxyEllipsoid);
+
+
+ 
+
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
