@@ -103,6 +103,9 @@ void Plugin::onLoad() {
   if (mPluginSettings == nullptr) {
     mPluginSettings = std::make_shared<Settings>();
   }
+
+   // set elevation scale to exaggeration
+   mAllSettings->mGraphics.pHeightScale.set(20.0);
   
   // Read settings from JSON.
   from_json(mAllSettings->mPlugins.at("csp-flow-vis"), *mPluginSettings);

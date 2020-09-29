@@ -92,6 +92,7 @@ uniform vec4 uBounds;
 
 //interpolatable stack of 2D textures == 2D + time dimension == 2+1 D == 3D
 uniform sampler3D uVelocity3DTexture;
+uniform float     uNumTimeSteps;
 // point in time to sample the stack of flow-textures;
 uniform float     uRelativeTime;
 // time interval to "Newton integrate" since last visual render frame:
@@ -136,7 +137,8 @@ void main()
     
     vec3 texcoords = vec3((vLngLat.x - uBounds.w) / (uBounds.y - uBounds.w),
                       1 - (vLngLat.y - uBounds.z) / (uBounds.x - uBounds.z),
-                      8.0 * uRelativeTime);
+                      //uNumTimeSteps * uRelativeTime);
+                      uRelativeTime);
                       
     //uRelativeTime
     oColor = texture(uVelocity3DTexture, texcoords).rgb;
@@ -148,15 +150,22 @@ void main()
       oColor = SRGBtoLINEAR(oColor);
     #endif
 
-    oColor = oColor * uSunIlluminance;
+    //oColor = oColor * uSunIlluminance;
 
-    #ifdef ENABLE_LIGHTING
-      vec3 normal = normalize(vNormal);
-      float light = max(dot(normal, uSunDirection), 0.0);
-      oColor = mix(oColor*uAmbientBrightness, oColor, light);
-    #endif
+    //#ifdef ENABLE_LIGHTING
+    //  vec3 normal = normalize(vNormal);
+    //  float light = max(dot(normal, uSunDirection), 0.0);
+    //  oColor = mix(oColor*uAmbientBrightness, oColor, light);
+    //#endif
 
-    gl_FragDepth = length(vPosition) / uFarClip;
+    float epsilon = -0.01;
+    //float epsilon = 0.00;
+    //gl_FragDepth = clamp( (length(vPosition) / uFarClip) + epsilon, 0.0, 1.0);
+    gl_FragDepth = (length(vPosition) / uFarClip) + epsilon;
+
+    float multiplier = 1.0;
+    gl_FragDepth = (length(vPosition) / uFarClip) * multiplier;
+
 }
 )";
 
@@ -506,6 +515,10 @@ bool ProxyEllipsoid::Do() {
       cs::utils::convert::toRadians(mBounds[2]), cs::utils::convert::toRadians(mBounds[3]));
   mPixelDisplaceShader.SetUniform(
       mPixelDisplaceShader.GetUniformLocation("uFarClip"), cs::utils::getCurrentFarClipDistance());
+
+  mPixelDisplaceShader.SetUniform(
+      mPixelDisplaceShader.GetUniformLocation("uNumTimeSteps"), static_cast<float>(mPluginSettings->mNumTimeSteps));
+  
 
   // in [0..1]
   double relativeTime = ( (mCurrentTime - mStartExistence)) / (mEndExistence - mStartExistence);
