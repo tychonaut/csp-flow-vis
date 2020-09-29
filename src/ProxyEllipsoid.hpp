@@ -51,7 +51,7 @@ class ProxyEllipsoid : public cs::scene::CelestialObject, public IVistaOpenGLDra
   void update(double tTime, cs::scene::CelestialObserver const& oObs) override;
 
   /// Configures the internal renderer according to the given values.
-  void setTifDirectory(std::string const& tifDirectory);
+  void loadVelocityTifFiles(std::string const& tifDirectory);
   void setStartDate(std::string const& startDate);
   void setEndDate(std::string const& endDate);
   void setBounds(glm::vec4 const& bounds);
@@ -74,8 +74,8 @@ class ProxyEllipsoid : public cs::scene::CelestialObject, public IVistaOpenGLDra
   std::unique_ptr<VistaOpenGLNode> mGLNode;
 
   // TODO switch this to a 3D texture;
-  std::vector<std::unique_ptr<VistaTexture>> mVectorTextures;
-  //std::unique_ptr<VistaTexture>    mVectorTexture;
+  std::vector<std::unique_ptr<VistaTexture>> mVelocity2DTextureArray;
+  std::unique_ptr<VistaTexture>              mVelocity3DTexture;
 
 
 

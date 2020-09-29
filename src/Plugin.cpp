@@ -127,7 +127,7 @@ void Plugin::onLoad() {
       //mPluginSettings->mFlowSpeedScale, 
       //mPluginSettings->mParticleSeedThreshold);
 
-  mProxyEllipsoid->setTifDirectory(mPluginSettings->mTifDirectory);
+  mProxyEllipsoid->loadVelocityTifFiles(mPluginSettings->mTifDirectory);
   mProxyEllipsoid->setStartDate(mPluginSettings->mStartDate);
   mProxyEllipsoid->setEndDate(mPluginSettings->mEndDate);
   mProxyEllipsoid->setBounds(

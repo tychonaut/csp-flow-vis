@@ -91,7 +91,7 @@ uniform vec3 uSunDirection;
 uniform vec4 uBounds;
 
 //interpolatable stack of 2D textures == 2D + time dimension == 2+1 D == 3D
-uniform sampler3D uVectorTextures;
+uniform sampler3D uVelocity3DTexture;
 // point in time to sample the stack of flow-textures;
 uniform float     uRelativeTime;
 // time interval to "Newton integrate" since last visual render frame:
@@ -103,7 +103,7 @@ uniform float     uFlowSpeedScale;
 // (The other one is the current render target.)
 uniform sampler2D uParticlesImage;
 
-uniform sampler2D uVectorTexture;
+uniform sampler2D uVelocity2DTexture;
 
 uniform float uAmbientBrightness;
 uniform float uSunIlluminance;
@@ -133,7 +133,7 @@ void main()
     vec2 texcoords = vec2((vLngLat.x - uBounds.w) / (uBounds.y - uBounds.w),
                       1 - (vLngLat.y - uBounds.z) / (uBounds.x - uBounds.z));
 
-    oColor = texture(uVectorTexture, texcoords).rgb;
+    oColor = texture(uVelocity2DTexture, texcoords).rgb;
 
     oColor.rg = (oColor.rg/4) + 0.25;
     oColor.b = (oColor.b/30);
@@ -250,16 +250,63 @@ void ProxyEllipsoid::update(double tTime, cs::scene::CelestialObserver const& oO
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void ProxyEllipsoid::setTifDirectory(std::string const& tifDirectory) {
+// return:(width, height, numchanelsPerPixel, numBitsPerPixelAndChannel)
+glm::u32vec4 getTifParams(std::string filepath) {
 
-  assert(mVectorTextures.empty);
-  mVectorTextures.clear();
+  auto* data = TIFFOpen(filepath.c_str(), "r");
+  if (!data) {
+    logger().error("Failed to load GeoTiff '" + filepath + "'!");
+    return glm::u32vec4(0, 0, 0, 0);
+  } else {
+    logger().info("Read GeoTiff '" + filepath + "'");
+  }
+
+  uint32 width{};
+  uint32 height{};
+  uint32 numChannelsPerPixel{};
+  uint32 bpp{};
+  TIFFGetField(data, TIFFTAG_IMAGEWIDTH, &width);
+  TIFFGetField(data, TIFFTAG_IMAGELENGTH, &height);
+  TIFFGetField(data, TIFFTAG_SAMPLESPERPIXEL, &numChannelsPerPixel);
+  TIFFGetField(data, TIFFTAG_BITSPERSAMPLE, &bpp);
+
+  logger().info(
+      "GeoTiff: filepath: {}, width: {}, height: {}, numChannelsPerPixel: {}, bpp: {}", 
+       filepath, width, height, numChannelsPerPixel, bpp);
+
+  TIFFClose(data);
+
+  if (bpp != 8 * sizeof(GLfloat)) 
+  {
+    logger().error("GeoTiff has not 32 bits per pixel!");
+  }
+   
+  return glm::u32vec4(width, height, numChannelsPerPixel, bpp);
+}
+
+void ProxyEllipsoid::loadVelocityTifFiles(std::string const& tifDirectory) {
+
+  assert(mVelocity2DTextureArray.empty());
+  mVelocity2DTextureArray.clear();
+
+  //init 3D texture
+  glEnable(GL_TEXTURE_3D);
+  mVelocity3DTexture = std::make_unique<VistaTexture>(GL_TEXTURE_3D);
+  
+  auto firstFilePath = tifDirectory + "/step_1.tif";
+  const glm::u32vec4  firstTifMeta              = getTifParams(firstFilePath);
+  const uint32        width                     = firstTifMeta.x;
+  const uint32        height                    = firstTifMeta.y;
+  const uint32        numChannels               = firstTifMeta.z;
+  const uint32        numBitsPerPixelAndChannel = firstTifMeta.w;
+
+  std::vector<float> pixels3D(
+      mPluginSettings->mNumTimeSteps * width * height * numChannels);
+
+
   //for (int timestep = 0; timestep < mNumTimeSteps; timestep++) {
   // TODO investigate why no 0 is spit out by the resampling scpripts
   for (int timestep = 1; timestep <= mPluginSettings->mNumTimeSteps; timestep++) {
-
-    mVectorTextures.push_back(std::make_unique<VistaTexture>(GL_TEXTURE_2D));
-    mVectorTextures.back()->Bind();
 
     auto currentFilePath = tifDirectory + "/step_" + std::to_string(timestep) + ".tif";
 
@@ -271,33 +318,43 @@ void ProxyEllipsoid::setTifDirectory(std::string const& tifDirectory) {
       logger().info("Read GeoTiff '" + currentFilePath + "'");
     }
 
-    uint32 width{};
-    uint32 height{};
-    TIFFGetField(data, TIFFTAG_IMAGELENGTH, &height);
-    TIFFGetField(data, TIFFTAG_IMAGEWIDTH, &width);
+    const glm::u32vec4 currentTifMeta = getTifParams(currentFilePath);
+    if (currentTifMeta != firstTifMeta) {
+      logger().error("Tif meta data differ amongst each other!");
+    }
 
-    uint16 bpp{};
-    TIFFGetField(data, TIFFTAG_BITSPERSAMPLE, &bpp);
+    int currenImage2DIndex = (timestep - 1) * width * height * numChannels;
 
-    int16 channels{};
-    TIFFGetField(data, TIFFTAG_SAMPLESPERPIXEL, &channels);
-
-    std::vector<float> pixels(width * height * channels);
+    //std::vector<float> pixels2D(width * height * numChannels);
 
     for (unsigned y = 0; y < height; y++) {
-      if (TIFFReadScanline(data, &pixels[width * channels * y], y) < 0) {
+      //if (TIFFReadScanline(data, &pixels2D[width * channels * y], y) < 0) {
+      if (TIFFReadScanline(data, &pixels3D[currenImage2DIndex + width * y * numChannels], y) < 0) {
         logger().error("Failed to read tif!");
       }
     }
     logger().info("{} {}", width, height);
 
-    gluBuild2DMipmaps(GL_TEXTURE_2D, GL_RGBA32F, width, height, GL_RGB, GL_FLOAT, pixels.data());
+
+
+    mVelocity2DTextureArray.push_back(std::make_unique<VistaTexture>(GL_TEXTURE_2D));
+    mVelocity2DTextureArray.back()->Bind();
+
+    //gluBuild2DMipmaps(GL_TEXTURE_2D, GL_RGBA32F, width, height, GL_RGB, GL_FLOAT, pixels2D.data());
+    gluBuild2DMipmaps(
+        GL_TEXTURE_2D, GL_RGBA32F, width, height, GL_RGB, GL_FLOAT, &pixels3D[currenImage2DIndex]);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
 
+    mVelocity2DTextureArray.back()->Unbind();
+
     TIFFClose(data);
-    mVectorTextures.back()->Unbind();
 
   }
+
+
+  mVelocity3DTexture->Bind();
+  glTexImage3D(GL_TEXTURE_3D, 0, GL_RGBA32F, width, height, mPluginSettings->mNumTimeSteps, 0,
+      GL_RGB, GL_FLOAT, pixels3D.data());
 
   /*
 
@@ -434,7 +491,7 @@ bool ProxyEllipsoid::Do() {
       mPixelDisplaceShader.GetUniformLocation("uMatModelView"), 1, GL_FALSE, glm::value_ptr(matMV));
   glUniformMatrix4fv(mPixelDisplaceShader.GetUniformLocation("uMatProjection"), 1, GL_FALSE, glMatP.data());
 
-  mPixelDisplaceShader.SetUniform(mPixelDisplaceShader.GetUniformLocation("uVectorTexture"), 0);
+  mPixelDisplaceShader.SetUniform(mPixelDisplaceShader.GetUniformLocation("uVelocity2DTexture"), 0);
   mPixelDisplaceShader.SetUniform(mPixelDisplaceShader.GetUniformLocation("uBounds"),
       cs::utils::convert::toRadians(mBounds[0]), cs::utils::convert::toRadians(mBounds[1]),
       cs::utils::convert::toRadians(mBounds[2]), cs::utils::convert::toRadians(mBounds[3]));
@@ -450,7 +507,7 @@ bool ProxyEllipsoid::Do() {
 
   /*
   //interpolatable stack of 2D textures == 2D + time dimension == 2+1 D == 3D
-uniform sampler3D uVectorTextures;
+uniform sampler3D uVelocity3DTexture;
 
 // time interval to "Newton integrate" since last visual render frame:
 uniform float     uDurationSinceLastFrame;
@@ -474,7 +531,7 @@ uniform sampler2D uParticlesImage;
   //logger().debug("relativeTime: " + std::to_string(relativeTime));
   //logger().debug("currentTextureIndex: " + std::to_string(currentTextureIndex));
 
-  mVectorTextures[currentTextureIndex]->Bind(GL_TEXTURE0);
+  mVelocity2DTextureArray[currentTextureIndex]->Bind(GL_TEXTURE0);
 
   // Draw.
   mSphereVAO.Bind();
@@ -483,7 +540,7 @@ uniform sampler2D uParticlesImage;
   mSphereVAO.Release();
 
   // Clean up.
-  mVectorTextures[currentTextureIndex]->Unbind(GL_TEXTURE0);
+  mVelocity2DTextureArray[currentTextureIndex]->Unbind(GL_TEXTURE0);
   mPixelDisplaceShader.Release();
 
   return true;
