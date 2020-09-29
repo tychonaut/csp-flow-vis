@@ -120,7 +120,7 @@ void Plugin::onLoad() {
   auto [tStartExistence, tEndExistence] = anchor->second.getExistence();
 
   mProxyEllipsoid = std::make_shared<ProxyEllipsoid>(
-      mAllSettings, mPluginSettings, mSolarSystem, anchor->second.mCenter, anchor->second.mFrame);
+      mAllSettings, mPluginSettings, mGuiManager, mSolarSystem, anchor->second.mCenter, anchor->second.mFrame);
       //mAllSettings, 
       //mSolarSystem,
       //tStartExistence, 

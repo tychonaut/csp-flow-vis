@@ -5,6 +5,7 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #include "ProxyEllipsoid.hpp"
+#include "FlowRenderer.hpp"
 #include "logger.hpp"
 
 #include "../../../src/cs-core/Settings.hpp"
@@ -173,12 +174,14 @@ void main()
 
 ProxyEllipsoid::ProxyEllipsoid(std::shared_ptr<cs::core::Settings> programSettings,
     std::shared_ptr<csp::flowvis::Plugin::Settings>                pluginSettings,
+    std::shared_ptr<cs::core::GuiManager>                          pGuiManager,
     std::shared_ptr<cs::core::SolarSystem> solarSystem, std::string const& sCenterName,
     std::string const& sFrameName)
     : 
     cs::scene::CelestialObject(sCenterName, sFrameName)
     , mProgramSettings(std::move(programSettings))
     , mPluginSettings(std::move(pluginSettings))
+    , mGuiManager(pGuiManager)
     , mSolarSystem(std::move(solarSystem))
     , mRadii(cs::core::SolarSystem::getRadii(sCenterName))
     , mBounds(glm::vec4(0.0f, 0.0f, 0.0f, 0.0f))
@@ -188,6 +191,14 @@ ProxyEllipsoid::ProxyEllipsoid(std::shared_ptr<cs::core::Settings> programSettin
     , mLastVisualRenderTime(cs::utils::convert::time::toSpice(mPluginSettings->mStartDate))
 
 {
+  initEllipsoidGeometry();
+
+  mFlowRenderer = std::make_unique<FlowRenderer>(programSettings, pluginSettings, pGuiManager);
+
+
+}
+
+void ProxyEllipsoid::initEllipsoidGeometry() {
   pVisibleRadius = mRadii[0];
 
   // For rendering the sphere, we create a 2D-grid which is warped into a sphere in the vertex
@@ -232,9 +243,9 @@ ProxyEllipsoid::ProxyEllipsoid(std::shared_ptr<cs::core::Settings> programSettin
 
   // Recreate the shader if lighting or HDR rendering mode are toggled.
   mEnableLightingConnection = mProgramSettings->mGraphics.pEnableLighting.connect(
-      [this](bool /*enabled*/) { mPixelDisplaceShaderDirty = true; });
-  mEnableHDRConnection =  mProgramSettings->mGraphics.pEnableHDR.connect(
-      [this](bool /*enabled*/) { mPixelDisplaceShaderDirty = true; });
+      [this](bool /*enabled*/) { mShowParticleTexOnSphereShaderDirty = true; });
+  mEnableHDRConnection = mProgramSettings->mGraphics.pEnableHDR.connect(
+      [this](bool /*enabled*/) { mShowParticleTexOnSphereShaderDirty = true; });
 
   // Add to scenegraph.
   VistaSceneGraph* pSG = GetVistaSystem()->GetGraphicsManager()->GetSceneGraph();
@@ -458,8 +469,8 @@ bool ProxyEllipsoid::Do() {
 
   cs::utils::FrameTimings::ScopedTimer timer("Flow Vis");
 
-  if (mPixelDisplaceShaderDirty) {
-    mPixelDisplaceShader = VistaGLSLShader();
+  if (mShowParticleTexOnSphereShaderDirty) {
+    mShowParticleTexOnSphereShader = VistaGLSLShader();
 
     // (Re-)create sphere shader.
     std::string defines = "#version 330\n";
@@ -472,14 +483,14 @@ bool ProxyEllipsoid::Do() {
       defines += "#define ENABLE_LIGHTING\n";
     }
 
-    mPixelDisplaceShader.InitVertexShaderFromString(defines + SPHERE_VERT);
-    mPixelDisplaceShader.InitFragmentShaderFromString(defines + SPHERE_FRAG);
-    mPixelDisplaceShader.Link();
+    mShowParticleTexOnSphereShader.InitVertexShaderFromString(defines + SPHERE_VERT);
+    mShowParticleTexOnSphereShader.InitFragmentShaderFromString(defines + SPHERE_FRAG);
+    mShowParticleTexOnSphereShader.Link();
 
-    mPixelDisplaceShaderDirty = false;
+    mShowParticleTexOnSphereShaderDirty = false;
   }
 
-  mPixelDisplaceShader.Bind();
+  mShowParticleTexOnSphereShader.Bind();
 
   glm::vec3 sunDirection(1, 0, 0);
   float     sunIlluminance(1.F);
@@ -493,10 +504,10 @@ bool ProxyEllipsoid::Do() {
     sunDirection = mSolarSystem->getSunDirection(getWorldTransform()[3]);
   }
 
-  mPixelDisplaceShader.SetUniform(mPixelDisplaceShader.GetUniformLocation("uSunDirection"), sunDirection[0], sunDirection[1],
+  mShowParticleTexOnSphereShader.SetUniform(mShowParticleTexOnSphereShader.GetUniformLocation("uSunDirection"), sunDirection[0], sunDirection[1],
       sunDirection[2]);
-  mPixelDisplaceShader.SetUniform(mPixelDisplaceShader.GetUniformLocation("uSunIlluminance"), sunIlluminance);
-  mPixelDisplaceShader.SetUniform(mPixelDisplaceShader.GetUniformLocation("uAmbientBrightness"), ambientBrightness);
+  mShowParticleTexOnSphereShader.SetUniform(mShowParticleTexOnSphereShader.GetUniformLocation("uSunIlluminance"), sunIlluminance);
+  mShowParticleTexOnSphereShader.SetUniform(mShowParticleTexOnSphereShader.GetUniformLocation("uAmbientBrightness"), ambientBrightness);
 
   // Get modelview and projection matrices.
   std::array<GLfloat, 16> glMatMV{};
@@ -505,40 +516,40 @@ bool ProxyEllipsoid::Do() {
   glGetFloatv(GL_PROJECTION_MATRIX, glMatP.data());
   auto matMV = glm::make_mat4x4(glMatMV.data()) * glm::mat4(getWorldTransform());
   glUniformMatrix4fv(
-      mPixelDisplaceShader.GetUniformLocation("uMatModelView"), 1, GL_FALSE, glm::value_ptr(matMV));
-  glUniformMatrix4fv(mPixelDisplaceShader.GetUniformLocation("uMatProjection"), 1, GL_FALSE, glMatP.data());
+      mShowParticleTexOnSphereShader.GetUniformLocation("uMatModelView"), 1, GL_FALSE, glm::value_ptr(matMV));
+  glUniformMatrix4fv(mShowParticleTexOnSphereShader.GetUniformLocation("uMatProjection"), 1, GL_FALSE, glMatP.data());
 
-  mPixelDisplaceShader.SetUniform(mPixelDisplaceShader.GetUniformLocation("uRadii"), static_cast<float>(mRadii[0]),
+  mShowParticleTexOnSphereShader.SetUniform(mShowParticleTexOnSphereShader.GetUniformLocation("uRadii"), static_cast<float>(mRadii[0]),
       static_cast<float>(mRadii[1]), static_cast<float>(mRadii[2]));
-  mPixelDisplaceShader.SetUniform(mPixelDisplaceShader.GetUniformLocation("uBounds"),
+  mShowParticleTexOnSphereShader.SetUniform(mShowParticleTexOnSphereShader.GetUniformLocation("uBounds"),
       cs::utils::convert::toRadians(mBounds[0]), cs::utils::convert::toRadians(mBounds[1]),
       cs::utils::convert::toRadians(mBounds[2]), cs::utils::convert::toRadians(mBounds[3]));
-  mPixelDisplaceShader.SetUniform(
-      mPixelDisplaceShader.GetUniformLocation("uFarClip"), cs::utils::getCurrentFarClipDistance());
+  mShowParticleTexOnSphereShader.SetUniform(
+      mShowParticleTexOnSphereShader.GetUniformLocation("uFarClip"), cs::utils::getCurrentFarClipDistance());
 
-  mPixelDisplaceShader.SetUniform(
-      mPixelDisplaceShader.GetUniformLocation("uNumTimeSteps"), static_cast<float>(mPluginSettings->mNumTimeSteps));
+  mShowParticleTexOnSphereShader.SetUniform(
+      mShowParticleTexOnSphereShader.GetUniformLocation("uNumTimeSteps"), static_cast<float>(mPluginSettings->mNumTimeSteps));
   
 
   // in [0..1]
   double relativeTime = ( (mCurrentTime - mStartExistence)) / (mEndExistence - mStartExistence);
-  mPixelDisplaceShader.SetUniform(mPixelDisplaceShader.GetUniformLocation("uRelativeTime"), 
+  mShowParticleTexOnSphereShader.SetUniform(mShowParticleTexOnSphereShader.GetUniformLocation("uRelativeTime"), 
       static_cast<float>(relativeTime));
 
   double uDurationSinceLastFrame = mCurrentTime - mLastVisualRenderTime;
-  mPixelDisplaceShader.SetUniform(
-      mPixelDisplaceShader.GetUniformLocation("uDurationSinceLastFrame"),
+  mShowParticleTexOnSphereShader.SetUniform(
+      mShowParticleTexOnSphereShader.GetUniformLocation("uDurationSinceLastFrame"),
       static_cast<float>(uDurationSinceLastFrame));
 
-   mPixelDisplaceShader.SetUniform(
-      mPixelDisplaceShader.GetUniformLocation("uFlowSpeedScale"),
+   mShowParticleTexOnSphereShader.SetUniform(
+      mShowParticleTexOnSphereShader.GetUniformLocation("uFlowSpeedScale"),
       static_cast<float>(mPluginSettings->mFlowSpeedScale));
 
 
   
   
   // 2D velocity tex; will be obsolete soon...
-  mPixelDisplaceShader.SetUniform(mPixelDisplaceShader.GetUniformLocation("uVelocity2DTexture"), 0);
+  mShowParticleTexOnSphereShader.SetUniform(mShowParticleTexOnSphereShader.GetUniformLocation("uVelocity2DTexture"), 0);
   int currentTextureIndex = std::clamp(
       static_cast<int>(
           std::floor(relativeTime * static_cast<double>(mPluginSettings->mNumTimeSteps))),
@@ -546,7 +557,7 @@ bool ProxyEllipsoid::Do() {
   mVelocity2DTextureArray[currentTextureIndex]->Bind(GL_TEXTURE0);
 
   // 3D texture:
-  mPixelDisplaceShader.SetUniform(mPixelDisplaceShader.GetUniformLocation("uVelocity3DTexture"), 1);
+  mShowParticleTexOnSphereShader.SetUniform(mShowParticleTexOnSphereShader.GetUniformLocation("uVelocity3DTexture"), 1);
   mVelocity3DTexture->Bind(GL_TEXTURE1);
 
 
@@ -559,7 +570,7 @@ bool ProxyEllipsoid::Do() {
   // Clean up.
   mVelocity2DTextureArray[currentTextureIndex]->Unbind(GL_TEXTURE0);
   mVelocity3DTexture->Unbind(GL_TEXTURE1);
-  mPixelDisplaceShader.Release();
+  mShowParticleTexOnSphereShader.Release();
 
   //update time for "last frame"
   mLastVisualRenderTime = mCurrentTime;

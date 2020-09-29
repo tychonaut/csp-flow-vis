@@ -31,15 +31,24 @@ namespace cs::scene {
 
 namespace csp::flowvis {
 
-/// This is just a sphere with a texture, attached to the given SPICE frame. The texture should be
-/// in equirectangular projection.
+
+class FlowRenderer;
+
+
+/// Dummy ellipsoid to show a texture that is valid in a certain coordinate range.
+/// Holds also an instance of FlowRenderer (I have no time to figure out relationships between
+/// the different vista GL instances ...)
+/// The texture should be in equirectangular projection.
 class ProxyEllipsoid : public cs::scene::CelestialObject, public IVistaOpenGLDraw {
  public:
   ProxyEllipsoid(std::shared_ptr<cs::core::Settings> programSettings,
       std::shared_ptr<csp::flowvis::Plugin::Settings> pluginSettings,
+      std::shared_ptr<cs::core::GuiManager>           pGuiManager,
       std::shared_ptr<cs::core::SolarSystem> solarSystem, 
       std::string const& sCenterName,
       std::string const& sFrameName);
+
+  void initEllipsoidGeometry();
 
   ProxyEllipsoid(ProxyEllipsoid const& other) = delete;
   ProxyEllipsoid(ProxyEllipsoid&& other)      = default;
@@ -66,9 +75,11 @@ class ProxyEllipsoid : public cs::scene::CelestialObject, public IVistaOpenGLDra
   bool GetBoundingBox(VistaBoundingBox& bb) override;
 
  private:
+
   std::shared_ptr<cs::core::Settings>               mProgramSettings;
   std::shared_ptr<csp::flowvis::Plugin::Settings>   mPluginSettings;
 
+  std::shared_ptr<cs::core::GuiManager>             mGuiManager;
 
   std::shared_ptr<cs::core::SolarSystem>            mSolarSystem;
   std::shared_ptr<const cs::scene::CelestialObject> mSun;
@@ -77,7 +88,7 @@ class ProxyEllipsoid : public cs::scene::CelestialObject, public IVistaOpenGLDra
 
   
   //------------------------------------
-  // Ellipsoid renders stuff:
+  // Ellipsoid render stuff:
 
   VistaVertexArrayObject mSphereVAO;
   VistaBufferObject      mSphereVBO;
@@ -86,51 +97,38 @@ class ProxyEllipsoid : public cs::scene::CelestialObject, public IVistaOpenGLDra
   glm::dvec3 mRadii;
   glm::vec4  mBounds;
 
-  double mCurrentTime;
-  // needed fordifference building, for FPS-independent animation speed
-  double mLastVisualRenderTime;
-
-  VistaGLSLShader mPixelDisplaceShader;
-  bool            mPixelDisplaceShaderDirty = true;
-  //some lighting variables (from copypasted simplebodies-plugin)
-  int  mEnableLightingConnection = -1;
-  int  mEnableHDRConnection      = -1;
-
+  VistaGLSLShader mShowParticleTexOnSphereShader;
+  bool            mShowParticleTexOnSphereShaderDirty = true;
+  //hacky shader source code definition
   static const char* SPHERE_VERT;
   static const char* SPHERE_FRAG;
 
 
+
+  //-----------------------
+  // some lighting variables (that should be obsolete; 
+  // it was copypasted simplebodies-plugin)
+  int mEnableLightingConnection = -1;
+  int mEnableHDRConnection      = -1;
+
+
+
+
+
+
   //------------------------------------
-  // Velocity vectors stuff:
+  // Flow render stuff:
+  std::unique_ptr<FlowRenderer> mFlowRenderer;
+
 
   // TODO delete 2D texture
-  std::vector<std::unique_ptr<VistaTexture>> mVelocity2DTextureArray;
+  std::vector<std::unique_ptr<VistaTexture> > mVelocity2DTextureArray;
 
-  std::unique_ptr<VistaTexture> mVelocity3DTexture;
-
-
-  //------------------------------------
-  // Particle texture stuff:
-
-  // render routines:
-  //void initParticleTexture();
-  //void reseedParticleTexture();
-  //void updateParticleTexture();
-
-  //fullscreen quad rendering:
-  VistaVertexArrayObject    mQuadVAO;
-  VistaBufferObject         mQuadVBO;
-
-  //offscreen render target:
-  VistaFramebufferObj       mFBO;
-  GLuint                        currentRenderTargetIndex = 0;
-  std::unique_ptr<VistaTexture> mParticlePingPongTexture[2];
-
-  VistaGLSLShader           mSeedAndDisplaceParticlesShader;
-
-  //static const char* PARTICLES_SEED_AND_DISPLACE_VERT;
-  //static const char* PARTICLES_SEED_AND_DISPLACE_FRAG;
-
+  //TODO outsource to FlowRenderer
+  double mCurrentTime;
+  // needed fordifference building, for FPS-independent animation speed
+  double                        mLastVisualRenderTime;
+  std::shared_ptr<VistaTexture> mVelocity3DTexture;
 
 };
 

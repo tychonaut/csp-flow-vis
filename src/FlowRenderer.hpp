@@ -10,11 +10,13 @@
 #include <memory>
 #include <string>
 
-#include <VistaKernel/GraphicsManager/VistaOpenGLDraw.h>
-
-#include <VistaOGLExt/VistaGLSLShader.h>
-#include <VistaOGLExt/VistaVertexArrayObject.h>
+//#include <VistaKernel/GraphicsManager/VistaOpenGLDraw.h>
+#include <VistaKernel/GraphicsManager/VistaOpenGLNode.h>
 #include <VistaOGLExt/VistaBufferObject.h>
+#include <VistaOGLExt/VistaFramebufferObj.h>
+#include <VistaOGLExt/VistaGLSLShader.h>
+#include <VistaOGLExt/VistaTexture.h>
+#include <VistaOGLExt/VistaVertexArrayObject.h>
 
 #include "Plugin.hpp"
 
@@ -24,11 +26,12 @@ namespace csp::flowvis {
 /// 	then displaces the pixels of the image by 2D velocity vectors, 
 ///     which are given in a 3D texture, representing time slices of 2D areas (2+1D).
 ///     This representation allows interpolation of velocities in both space and time 
-class FlowRenderer : public IVistaOpenGLDraw {
+class FlowRenderer {
+    //: public IVistaOpenGLDraw {
  public:
   //FlowRenderer() = default;
   //FlowRenderer(std::string vertexSource, std::string fragmentSource);
-  FlowRenderer(
+  explicit FlowRenderer(
       std::shared_ptr<cs::core::Settings>   programSettings,
       std::shared_ptr<Plugin::Settings>     pluginSettings,
       std::shared_ptr<cs::core::GuiManager> pGuiManager
@@ -41,21 +44,50 @@ class FlowRenderer : public IVistaOpenGLDraw {
 
   virtual ~FlowRenderer() = default;
 
-
-  VistaVertexArrayObject mQuadVAO;
-  VistaBufferObject      mQuadVBO;
-
+  std::shared_ptr<VistaTexture> getVelocity3DTexture() const {
+    return mVelocity3DTexture;
+  }
 
  protected:
 
+  // render routines:
+  void initParticleTexture();
+  // void reseedParticleTexture();
+  // void updateParticleTexture();
 
   std::shared_ptr<cs::core::Settings>   mProgramSettings;
   std::shared_ptr<cs::core::GuiManager> mGuiManager;
   std::shared_ptr<Plugin::Settings>     mPluginSettings;
 
 
-  VistaGLSLShader mSeedParticlesShader;
-  VistaGLSLShader mDisplaceParticlesShader;
+  //------------------------------------
+  // Velocity vectors stuff:
+
+  //handle to velocity data from plugin
+  std::shared_ptr<VistaTexture> mVelocity3DTexture;
+
+  //------------------------------------
+  // Particle texture stuff:
+
+  // render routines:
+  // void initParticleTexture();
+  // void reseedParticleTexture();
+  // void updateParticleTexture();
+
+  // fullscreen quad rendering:
+  VistaVertexArrayObject mQuadVAO;
+  VistaBufferObject      mQuadVBO;
+
+  // offscreen render target:
+  VistaFramebufferObj           mFBO;
+  GLuint                        currentRenderTargetIndex = 0;
+  std::shared_ptr<VistaTexture> mParticlePingPongTexture[2];
+
+  VistaGLSLShader mSeedAndDisplaceParticlesShader;
+  bool            mSeedAndDisplaceParticlesShaderDirty = true;
+
+  // static const char* PARTICLES_SEED_AND_DISPLACE_VERT;
+  // static const char* PARTICLES_SEED_AND_DISPLACE_FRAG;
 };
 
 } // namespace csp::flowvis

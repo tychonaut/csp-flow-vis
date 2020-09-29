@@ -69,4 +69,17 @@ void FlowRenderer::compile() {
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-} // namespace csp::lodbodies
+FlowRenderer::FlowRenderer(std::shared_ptr<cs::core::Settings> programSettings,
+    std::shared_ptr<Plugin::Settings>                          pluginSettings,
+    std::shared_ptr<cs::core::GuiManager>                      pGuiManager)
+    : mProgramSettings(programSettings), mPluginSettings(pluginSettings)
+    , mGuiManager(pGuiManager)
+{
+  initParticleTexture();
+}
+
+void FlowRenderer::initParticleTexture() {
+    //TODO
+}
+
+} // namespace csp::flowvis
