@@ -170,6 +170,7 @@ ProxyEllipsoid::ProxyEllipsoid(std::shared_ptr<cs::core::Settings> programSettin
     //TODO check for consitency with program startup:
     //dummy value:
     , mCurrentTime(cs::utils::convert::time::toSpice(mPluginSettings->mStartDate)) 
+    , mLastVisualRenderTime(cs::utils::convert::time::toSpice(mPluginSettings->mStartDate))
 
 {
   pVisibleRadius = mRadii[0];
@@ -472,7 +473,6 @@ bool ProxyEllipsoid::Do() {
     if (mProgramSettings->mGraphics.pEnableHDR.get()) {
       sunIlluminance = static_cast<float>(mSolarSystem->getSunIlluminance(getWorldTransform()[3]));
     }
-
     sunDirection = mSolarSystem->getSunDirection(getWorldTransform()[3]);
   }
 
@@ -491,47 +491,43 @@ bool ProxyEllipsoid::Do() {
       mPixelDisplaceShader.GetUniformLocation("uMatModelView"), 1, GL_FALSE, glm::value_ptr(matMV));
   glUniformMatrix4fv(mPixelDisplaceShader.GetUniformLocation("uMatProjection"), 1, GL_FALSE, glMatP.data());
 
-  mPixelDisplaceShader.SetUniform(mPixelDisplaceShader.GetUniformLocation("uVelocity2DTexture"), 0);
+  mPixelDisplaceShader.SetUniform(mPixelDisplaceShader.GetUniformLocation("uRadii"), static_cast<float>(mRadii[0]),
+      static_cast<float>(mRadii[1]), static_cast<float>(mRadii[2]));
   mPixelDisplaceShader.SetUniform(mPixelDisplaceShader.GetUniformLocation("uBounds"),
       cs::utils::convert::toRadians(mBounds[0]), cs::utils::convert::toRadians(mBounds[1]),
       cs::utils::convert::toRadians(mBounds[2]), cs::utils::convert::toRadians(mBounds[3]));
-  mPixelDisplaceShader.SetUniform(mPixelDisplaceShader.GetUniformLocation("uRadii"), static_cast<float>(mRadii[0]),
-      static_cast<float>(mRadii[1]), static_cast<float>(mRadii[2]));
   mPixelDisplaceShader.SetUniform(
       mPixelDisplaceShader.GetUniformLocation("uFarClip"), cs::utils::getCurrentFarClipDistance());
 
   // in [0..1]
   double relativeTime = ( (mCurrentTime - mStartExistence)) / (mEndExistence - mStartExistence);
-  
-  mPixelDisplaceShader.SetUniform(mPixelDisplaceShader.GetUniformLocation("uRelativeTime"), static_cast<float>(relativeTime));
+  mPixelDisplaceShader.SetUniform(mPixelDisplaceShader.GetUniformLocation("uRelativeTime"), 
+      static_cast<float>(relativeTime));
 
-  /*
-  //interpolatable stack of 2D textures == 2D + time dimension == 2+1 D == 3D
-uniform sampler3D uVelocity3DTexture;
+  double uDurationSinceLastFrame = mCurrentTime - mLastVisualRenderTime;
+  mPixelDisplaceShader.SetUniform(
+      mPixelDisplaceShader.GetUniformLocation("uDurationSinceLastFrame"),
+      static_cast<float>(uDurationSinceLastFrame));
 
-// time interval to "Newton integrate" since last visual render frame:
-uniform float     uDurationSinceLastFrame;
-// non-physical, user-definable scale factor in order to make the flow speeds visually distinguishable
-uniform float     uFlowSpeedScale;
-
-// The least recently updated "random particle ping-pong image".
-// (The other one is the current render target.)
-uniform sampler2D uParticlesImage;
-  */
+   mPixelDisplaceShader.SetUniform(
+      mPixelDisplaceShader.GetUniformLocation("uFlowSpeedScale"),
+      static_cast<float>(mPluginSettings->mFlowSpeedScale));
 
 
   
   
-  //relativeTime = std::clamp(relativeTime, 0.0, 0.999);
+  // 2D velocity tex; will be obsolete soon...
+  mPixelDisplaceShader.SetUniform(mPixelDisplaceShader.GetUniformLocation("uVelocity2DTexture"), 0);
   int currentTextureIndex = std::clamp(
       static_cast<int>(
           std::floor(relativeTime * static_cast<double>(mPluginSettings->mNumTimeSteps))),
       0, mPluginSettings->mNumTimeSteps - 1); 
-
-  //logger().debug("relativeTime: " + std::to_string(relativeTime));
-  //logger().debug("currentTextureIndex: " + std::to_string(currentTextureIndex));
-
   mVelocity2DTextureArray[currentTextureIndex]->Bind(GL_TEXTURE0);
+
+  // 3D texture:
+  mPixelDisplaceShader.SetUniform(mPixelDisplaceShader.GetUniformLocation("uVelocity3DTexture"), 1);
+  mVelocity3DTexture->Bind(GL_TEXTURE1);
+
 
   // Draw.
   mSphereVAO.Bind();
@@ -541,7 +537,11 @@ uniform sampler2D uParticlesImage;
 
   // Clean up.
   mVelocity2DTextureArray[currentTextureIndex]->Unbind(GL_TEXTURE0);
+  mVelocity3DTexture->Unbind(GL_TEXTURE1);
   mPixelDisplaceShader.Release();
+
+  //update time for "last frame"
+  mLastVisualRenderTime = mCurrentTime;
 
   return true;
 }

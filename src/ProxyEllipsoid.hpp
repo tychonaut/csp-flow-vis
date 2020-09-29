@@ -92,7 +92,8 @@ class ProxyEllipsoid : public cs::scene::CelestialObject, public IVistaOpenGLDra
   //double     mParticleSeedThreshold;
 
   double mCurrentTime;
-
+  // needed fordifference building, for FPS-independent animation speed
+  double mLastVisualRenderTime;
 
   VistaGLSLShader mPixelDisplaceShader;
   bool            mPixelDisplaceShaderDirty = true;
