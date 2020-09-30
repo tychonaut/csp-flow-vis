@@ -367,6 +367,9 @@ void FlowRenderer::renderParticleAnimation() {
 
 void FlowRenderer::seedParticleTexture() {
   
+  static int currentSeedCycleTime = 0;
+  currentSeedCycleTime++;
+
   //// hack in order so not update every frame;
   //static int currentSeedCycleTime = 0;
   //const int  numFramesBetweenReseed = 60;
@@ -378,6 +381,8 @@ void FlowRenderer::seedParticleTexture() {
   //}
 
   //glFlush();
+
+  logger().debug("particle seeding #{}", currentSeedCycleTime);
 
   getCurrentParticleTexToReadFrom()->Bind();
 

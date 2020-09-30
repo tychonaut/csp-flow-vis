@@ -139,13 +139,16 @@ void main()
                       //uNumTimeSteps * uRelativeTime);
                       uRelativeTime);
                       
-    oColor = texture(uVelocity3DTexture, texcoords).rgb;
+    //debug draw
+    oColor.rg = texture(uVelocity3DTexture, texcoords).rg;
+    oColor.rg = (oColor.rg/4) + 0.25;
 
+    // this is the real particl image:
     oColor.b = texture(uParticlesImage, texcoords.xy).r;
 
-    
+    oColor.rgb = texture(uParticlesImage, texcoords.xy).rrr;
 
-    oColor.rg = (oColor.rg/4) + 0.25;
+    
     //oColor.b = (oColor.b/30);
 
 
@@ -328,7 +331,7 @@ bool ProxyEllipsoid::Do() {
   }
 
   //test omission
-  //mFlowRenderer->seedParticleTexture();
+  mFlowRenderer->seedParticleTexture();
   mFlowRenderer->renderParticleAnimation();
 
 
