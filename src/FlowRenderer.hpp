@@ -78,10 +78,11 @@ class FlowRenderer {
   // render routines:
  protected:  
   void initParticleTextures();
+  void initParticleAnimationFBO();
 
  public:
   void seedParticleTexture();
-  void convectParticleTexture();
+  void renderParticleAnimation();
 
  protected:
 
@@ -122,13 +123,16 @@ class FlowRenderer {
   VistaBufferObject      mQuadVBO;
 
   // offscreen render target:
-  VistaFramebufferObj           mFBO;
-  GLuint                        mCurrentRenderTargetIndex = 0;
+  std::shared_ptr <VistaFramebufferObj> mFBO;
+  //not sure if nececcary, but depth buffer for FBO:
+  std::shared_ptr<VistaTexture> mFBOdepthBufferTex;
+  //ping pong color attachments
   std::shared_ptr<VistaTexture> mParticlePingPongTexture[2];
+  GLuint                        mCurrentRenderTargetIndex = 0;
 
   std::shared_ptr<VistaTexture> mSeedTexture;
   // eventually, noise will be calculated one the GPU,
-  // but as a quaick hack, let's to it on CPU an then upload
+  // but as a quick hack, let's to it on CPU an then upload
   std::vector<GLfloat> mSeedTextureHostData;
   typedef std::mt19937                                 rng_type;
   rng_type                                             mRNG;

@@ -329,7 +329,7 @@ bool ProxyEllipsoid::Do() {
 
 
   mFlowRenderer->seedParticleTexture();
-  mFlowRenderer->convectParticleTexture();
+  mFlowRenderer->renderParticleAnimation();
 
 
 

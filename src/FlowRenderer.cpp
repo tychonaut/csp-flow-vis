@@ -98,6 +98,9 @@ FlowRenderer::FlowRenderer(std::shared_ptr<cs::core::Settings> programSettings,
 
   loadVelocityTifFiles(mPluginSettings->mTifDirectory);
 
+  initParticleAnimationFBO();
+
+
   initParticleTextures();
 }
 
@@ -140,6 +143,63 @@ void FlowRenderer::initParticleTextures() {
 
   seedParticleTexture();
 
+}
+
+void FlowRenderer::initParticleAnimationFBO() {
+
+  mFBO = std::make_shared<VistaFramebufferObj>();
+  
+  mFBOdepthBufferTex = std::make_shared<VistaTexture>(GL_TEXTURE_2D);
+  mFBOdepthBufferTex->Bind();
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, mImageWidth, mImageHeight, 0,
+      GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
+
+  mFBO->Attach(mFBOdepthBufferTex.get(), GL_DEPTH_ATTACHMENT);
+  mFBOdepthBufferTex->Unbind();
+
+}
+
+void FlowRenderer::renderParticleAnimation() {
+
+    //boilerplate code stolen from Shadows.cpp
+
+    // save current viewport
+    std::array<GLint, 4> iOrigViewport{};
+    glGetIntegerv(GL_VIEWPORT, iOrigViewport.data());
+
+
+    // bind the fbo
+    mFBO->Bind();
+
+    //bind current write-pingpong texture to FBO's color attachment:
+    mFBO->Attach(getCurrentRenderTarget().get(), GL_COLOR_ATTACHMENT0);
+
+    // setup viewport
+    glViewport(0, 0, mImageWidth, mImageHeight);
+
+    // clear fbo
+    glClear(GL_DEPTH_BUFFER_BIT);
+
+
+    //TODO bind shaders, set uniforms
+    
+    //TODO draw "fullscreen" quad via VAO
+
+
+    // unbind fbo again
+    mFBO->Release();
+
+    // restore previous viewport
+    glViewport(iOrigViewport.at(0), iOrigViewport.at(1), iOrigViewport.at(2), iOrigViewport.at(3));
+
+
+    //let them ping pongs switch roles
+    togglePingPongTex();
 }
 
 void FlowRenderer::seedParticleTexture() {
@@ -202,17 +262,7 @@ void FlowRenderer::seedParticleTexture() {
   getCurrentParticleTexToReadFrom()->Unbind();
 }
 
-void FlowRenderer::convectParticleTexture() {
 
-    // some old quatsch, TODO delete
-  // 2D velocity tex; will be obsolete soon...
-  // mShowParticleTexOnSphereShader.SetUniform(mShowParticleTexOnSphereShader.GetUniformLocation("uVelocity2DTexture"),
-  // 0); mVelocity2DTextureArray[currentTextureIndex]->Bind(GL_TEXTURE0);
-  
-
-
-    //TODO
-}
 
 void FlowRenderer::togglePingPongTex() {
   mCurrentRenderTargetIndex = (mCurrentRenderTargetIndex + 1) % 2;
