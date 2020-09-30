@@ -170,10 +170,12 @@ void main()
     // scale green channel by temperature
     oColor.g *= scaledTemperature;
     
-    //some transparency
-    oColor.a = 0.375;
+    //some transparency that  works good with blue marble
+    //oColor.a = 0.375;
 
-    
+    //some transparency that  works good with terrein texture shading
+    oColor.a = 0.75;
+
 
 
     #ifdef ENABLE_HDR
