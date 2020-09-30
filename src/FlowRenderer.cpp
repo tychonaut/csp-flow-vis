@@ -91,7 +91,13 @@ void main()
 {
     
     vec3 texcoords3D = vec3(vsIn.vTexcoords.x, vsIn.vTexcoords.y, uRelativeTime);   
+    
+    // weird: this one looks like 90 degrees wrong
     vec2 velocity = texture(uVelocity3DTexture, texcoords3D).rg;
+    //float scaledTemperature = texture(uVelocity3DTexture, texcoords3D).b / 32.0;
+
+    //debug try: switch axes:
+    //vec2 velocity = texture(uVelocity3DTexture, texcoords3D).gr;
 
     vec2 scaledVelocity = velocity * uFlowSpeedScale;
 
@@ -107,6 +113,8 @@ void main()
 
     // pull from inverse direction of diplacement vector: hence MINUS:
     vec2 particlePosToPull = vsIn.vTexcoords.xy - displacement.xy;
+    //debug:
+    //vec2 particlePosToPull = vsIn.vTexcoords.xy + displacement.xy;
 
     oColor = texture(uParticlesImage, particlePosToPull).r;
    

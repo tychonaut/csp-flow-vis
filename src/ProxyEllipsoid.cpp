@@ -120,7 +120,7 @@ in vec3 vCenter;
 in vec2 vLngLat;
 
 // outputs
-layout(location = 0) out vec3 oColor;
+layout(location = 0) out vec4 oColor;
 
 vec3 SRGBtoLINEAR(vec3 srgbIn)
 {
@@ -139,17 +139,28 @@ void main()
                       //uNumTimeSteps * uRelativeTime);
                       uRelativeTime);
                       
-    //debug draw
-    oColor.rg = texture(uVelocity3DTexture, texcoords).rg;
-    oColor.rg = (oColor.rg/4) + 0.25;
+    vec2 vel = texture(uVelocity3DTexture, texcoords).rg;
+    float speed = length(vel.xy);
 
-    // this is the real particl image:
+    float scaledTemperature = texture(uVelocity3DTexture, texcoords).b / 32.0;
+
+    //debug draw
+    //oColor.rg = (oColor.rg/4) + 0.25;
+
+    // this is the real particle image:
     oColor.b = texture(uParticlesImage, texcoords.xy).r;
 
+    // "particleness" makes overall brightness
     oColor.rgb = texture(uParticlesImage, texcoords.xy).rrr;
 
+    // set red channel --> speediness
+    oColor.r = speed;
+
+    // scale green channel by temperature
+    oColor.g *= scaledTemperature;
     
-    //oColor.b = (oColor.b/30);
+    //some transparency
+    oColor.a = 0.5;
 
 
     #ifdef ENABLE_HDR
@@ -319,6 +330,9 @@ bool ProxyEllipsoid::Do() {
     return true;
   }
 
+  //glEnable(GL_BLEND);
+  //glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
   // reported 16384 on Quadro RTX 5000; Should be enough for 2700x2700x73;
   //GLint maxTexSize = 0;
   //glGetIntegerv(GL_MAX_3D_TEXTURE_SIZE, & maxTexSize );
@@ -349,6 +363,8 @@ bool ProxyEllipsoid::Do() {
   mFlowRenderer->getVelocity3DTexture()->Unbind(GL_TEXTURE1);
 
   mShowParticleTexOnSphereShader.Release();
+
+  //glDisable(GL_BLEND);
 
   //update time for "last frame"
   //mLastVisualRenderTime = mCurrentTime;
