@@ -160,7 +160,7 @@ void main()
     oColor.g *= scaledTemperature;
     
     //some transparency
-    oColor.a = 0.5;
+    oColor.a = 0.375;
 
 
     #ifdef ENABLE_HDR
@@ -348,7 +348,8 @@ bool ProxyEllipsoid::Do() {
   mFlowRenderer->seedParticleTexture();
   mFlowRenderer->renderParticleAnimation();
 
-
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
   setShaderUniforms();
 
@@ -364,7 +365,7 @@ bool ProxyEllipsoid::Do() {
 
   mShowParticleTexOnSphereShader.Release();
 
-  //glDisable(GL_BLEND);
+  glDisable(GL_BLEND);
 
   //update time for "last frame"
   //mLastVisualRenderTime = mCurrentTime;
