@@ -79,6 +79,10 @@ class FlowRenderer {
  protected:  
   void initParticleTextures();
   void initParticleAnimationFBO();
+  void initParticleAnimationVAO();
+  void initParticleAnimationShader();
+
+  void setupParticleAnimationShaderUniforms();
 
  public:
   void seedParticleTexture();
@@ -133,16 +137,16 @@ class FlowRenderer {
   std::shared_ptr<VistaTexture> mSeedTexture;
   // eventually, noise will be calculated one the GPU,
   // but as a quick hack, let's to it on CPU an then upload
-  std::vector<GLfloat> mSeedTextureHostData;
-  typedef std::mt19937                                 rng_type;
-  rng_type                                             mRNG;
-  rng_type::result_type const                          mSeedval = 94761;
+  std::vector<GLfloat>           mSeedTextureHostData;
+  typedef std::mt19937           rng_type;
+  rng_type                       mRNG;
+  rng_type::result_type const    mSeedval = 94761;
 
-  VistaGLSLShader mSeedAndDisplaceParticlesShader;
-  bool            mSeedAndDisplaceParticlesShaderDirty = true;
-
-  // static const char* PARTICLES_SEED_AND_DISPLACE_VERT;
-  // static const char* PARTICLES_SEED_AND_DISPLACE_FRAG;
+  VistaGLSLShader                mParticleAnimationShader;
+  bool                           mParticleAnimationShaderDirty = true;
+  
+  static const char* PARTICLES_SEED_AND_DISPLACE_VERT;
+  static const char* PARTICLES_SEED_AND_DISPLACE_FRAG;
 };
 
 } // namespace csp::flowvis

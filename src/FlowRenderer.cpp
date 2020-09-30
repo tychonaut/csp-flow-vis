@@ -28,6 +28,94 @@
 
 namespace csp::flowvis {
 
+
+
+const char* FlowRenderer::PARTICLES_SEED_AND_DISPLACE_VERT = R"(
+  #version 330
+
+  // inputs
+  layout(location = 0) in vec2 vPosition;
+
+  // uniforms
+  // none ...
+
+  // outputs
+  out VaryingStruct {
+    vec2 vTexcoords;
+  } vsOut;
+
+
+  void main() {
+    
+    // for lookups in the depth and color buffers
+    vsOut.vTexcoords = vPosition * 0.5 + 0.5;
+
+    // no tranformation here since we draw a full screen quad
+    gl_Position = vec4(vPosition, 0, 1);
+
+  }
+)";
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+const char* FlowRenderer::PARTICLES_SEED_AND_DISPLACE_FRAG = R"(
+  #version 330
+
+  // inputs
+  in VaryingStruct {
+    vec2 vTexcoords;
+  } vsIn;
+
+
+  // The least recently updated "random particle ping-pong image".
+  // (The other one is the current render target.)
+  uniform sampler2D uParticlesImage;
+
+  //interpolatable stack of 2D textures == 2D + time dimension == 2+1 D == 3D
+  uniform sampler3D uVelocity3DTexture;
+  uniform float     uNumTimeSteps;
+  // point in time to sample the stack of flow-textures;
+  uniform float     uRelativeTime;
+  // time interval to "Newton integrate" since last visual render frame:
+  uniform float     uDurationSinceLastFrame;
+  // non-physical, user-definable scale factor in order to make the flow speeds visually distinguishable
+  uniform float     uFlowSpeedScale;
+
+
+// outputs
+// TODO check if float can work
+layout(location = 0) out float oColor;
+
+    
+void main()
+{
+    
+    vec3 texcoords3D = vec3(vsIn.vTexcoords.x, vsIn.vTexcoords.y, uRelativeTime);   
+    vec2 velocity = texture(uVelocity3DTexture, texcoords3D).rg;
+
+    vec2 scaledVelocity = velocity * uFlowSpeedScale;
+
+    vec2 displacement = scaledVelocity * uDurationSinceLastFrame;
+    
+    //TODO test this:
+    //float aspectRatio_H_V = float(textureSize(uParticlesImage).x)
+    //                      / float(textureSize(uParticlesImage).y);
+    float aspectRatio_H_V = 1.0;
+           
+    //compensate for aspectration: downscale displacement horizontal tex coord by aspect ratio
+    displacement.x /= aspectRatio_H_V;
+
+    // pull from inverse direction of diplacement vector: hence MINUS:
+    vec2 particlePosToPull = vsIn.vTexcoords.xy - displacement.xy;
+
+    oColor = texture(uParticlesImage, particlePosToPull).r;
+   
+    //dummy value, not sure if needed to write:
+    gl_FragDepth = 0.5;
+
+}
+)";
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 //FlowRenderer::FlowRenderer(std::string vertexSource, std::string fragmentSource)
@@ -99,7 +187,8 @@ FlowRenderer::FlowRenderer(std::shared_ptr<cs::core::Settings> programSettings,
   loadVelocityTifFiles(mPluginSettings->mTifDirectory);
 
   initParticleAnimationFBO();
-
+  initParticleAnimationVAO();
+  initParticleAnimationShader();
 
   initParticleTextures();
 }
@@ -164,6 +253,72 @@ void FlowRenderer::initParticleAnimationFBO() {
 
 }
 
+void FlowRenderer::initParticleAnimationVAO() {
+  // create quad -------------------------------------------------------------
+  std::array<float, 8> const data{-1, 1, 1, 1, -1, -1, 1, -1};
+
+  mQuadVBO.Bind(GL_ARRAY_BUFFER);
+  mQuadVBO.BufferData(data.size() * sizeof(float), data.data(), GL_STATIC_DRAW);
+  mQuadVBO.Release();
+
+  // positions
+  mQuadVAO.EnableAttributeArray(0);
+  mQuadVAO.SpecifyAttributeArrayFloat(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), 0, &mQuadVBO);
+}
+
+void FlowRenderer::initParticleAnimationShader() {
+
+  mParticleAnimationShader = VistaGLSLShader();
+
+  std::string sVert(PARTICLES_SEED_AND_DISPLACE_VERT);
+  std::string sFrag(PARTICLES_SEED_AND_DISPLACE_FRAG);
+
+  mParticleAnimationShader.InitVertexShaderFromString(sVert);
+  mParticleAnimationShader.InitFragmentShaderFromString(sFrag);
+
+  mParticleAnimationShader.Link();
+}
+
+void FlowRenderer::setupParticleAnimationShaderUniforms() {
+
+  mParticleAnimationShader.Bind();
+
+  mParticleAnimationShader.SetUniform(mParticleAnimationShader.GetUniformLocation("uNumTimeSteps"),
+      static_cast<float>(mPluginSettings->mNumTimeSteps));
+
+  // TODO outsource this logic to FlowRenderer
+  // in [0..1]
+  double startDate_spice = cs::utils::convert::time::toSpice(mPluginSettings->mStartDate);
+  double endDate_spice   = cs::utils::convert::time::toSpice(mPluginSettings->mEndDate);
+  double relativeTime =
+      (getCurrentTime() - startDate_spice) / (endDate_spice - startDate_spice);
+  mParticleAnimationShader.SetUniform(mParticleAnimationShader.GetUniformLocation("uRelativeTime"),
+      static_cast<float>(relativeTime));
+
+  double uDurationSinceLastFrame =
+      getCurrentTime() - getLastVisualRenderTime();
+  mParticleAnimationShader.SetUniform(
+      mParticleAnimationShader.GetUniformLocation("uDurationSinceLastFrame"),
+      static_cast<float>(uDurationSinceLastFrame));
+
+  mParticleAnimationShader.SetUniform(
+      mParticleAnimationShader.GetUniformLocation("uFlowSpeedScale"),
+      static_cast<float>(mPluginSettings->mFlowSpeedScale));
+
+  // uParticlesImage
+  mParticleAnimationShader.SetUniform(
+      mParticleAnimationShader.GetUniformLocation("uParticlesImage"), 0);
+  getCurrentParticleTexToReadFrom()->Bind(GL_TEXTURE0);
+
+  // 3D texture:
+  mParticleAnimationShader.SetUniform(
+      mParticleAnimationShader.GetUniformLocation("uVelocity3DTexture"), 1);
+  getVelocity3DTexture()->Bind(GL_TEXTURE1);
+
+}
+
+
+
 void FlowRenderer::renderParticleAnimation() {
 
     //boilerplate code stolen from Shadows.cpp
@@ -185,14 +340,22 @@ void FlowRenderer::renderParticleAnimation() {
     // clear fbo
     glClear(GL_DEPTH_BUFFER_BIT);
 
-
-    //TODO bind shaders, set uniforms
+    // bind shader  ----------------------------------------
+    mParticleAnimationShader.Bind();
+    // set uniforms
+    setupParticleAnimationShaderUniforms();
     
-    //TODO draw "fullscreen" quad via VAO
+    // draw "fullscreen" quad via VAO-----------------------------------------
+    mQuadVAO.Bind();
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    mQuadVAO.Release();
+
 
 
     // unbind fbo again
     mFBO->Release();
+
+    mParticleAnimationShader.Release();
 
     // restore previous viewport
     glViewport(iOrigViewport.at(0), iOrigViewport.at(1), iOrigViewport.at(2), iOrigViewport.at(3));
@@ -204,24 +367,24 @@ void FlowRenderer::renderParticleAnimation() {
 
 void FlowRenderer::seedParticleTexture() {
   
-  // hack in order so not update every frame;
-  static int currentSeedCycleTime = 0;
-  const int  numFramesBetweenReseed = 60;
-  if (currentSeedCycleTime >= numFramesBetweenReseed) {
-    currentSeedCycleTime = 0;
-  } else {
-    currentSeedCycleTime++;
-    return;
-  }
+  //// hack in order so not update every frame;
+  //static int currentSeedCycleTime = 0;
+  //const int  numFramesBetweenReseed = 60;
+  //if (currentSeedCycleTime >= numFramesBetweenReseed) {
+  //  currentSeedCycleTime = 0;
+  //} else {
+  //  currentSeedCycleTime++;
+  //  return;
+  //}
 
-  glFlush();
+  //glFlush();
 
   getCurrentParticleTexToReadFrom()->Bind();
 
   //hack: read back tex from GPU:
   glGetTexImage(GL_TEXTURE_2D, 0, GL_RED, GL_FLOAT, mSeedTextureHostData.data());
 
-  glFlush();
+  //glFlush();
 
   const GLint                        numCells = mImageWidth * mImageHeight;
   std::uniform_int_distribution<rng_type::result_type> udist(0, numCells -1);
@@ -234,30 +397,13 @@ void FlowRenderer::seedParticleTexture() {
     mSeedTextureHostData[udist(mRNG)] = 1.0;
   }
 
-  //// put some new random black&white dots into the texture:
-  //GLfloat currentRandomValue = 0.0f;
-  //for (GLuint currentCell = 0; currentCell < numCells; currentCell++) {
-  //  // in [0..1]
-  //  currentRandomValue = static_cast<GLfloat>(rand()) / static_cast<GLfloat>(RAND_MAX);
-
-  //  // if close to zero or one (defined by user via particleSeedThreshold),
-  //  // then black (0.0) or white (1.0), respectively
-  //  mSeedTextureHostData[currentCell] = 0.5;
-  //  if (currentRandomValue < mPluginSettings->mParticleSeedThreshold) {
-  //    mSeedTextureHostData[currentCell] = 0.0;
-  //  }
-  //  if (currentRandomValue > (1.0 - mPluginSettings->mParticleSeedThreshold)) {
-  //    mSeedTextureHostData[currentCell] = 1.0;
-  //  }
-  //}
-
-  glFlush();
+  //glFlush();
 
   // hack: re-upload
   glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, mImageWidth, mImageHeight, 0, GL_RED, GL_FLOAT,
       mSeedTextureHostData.data());
 
-  glFlush();
+  //glFlush();
 
   getCurrentParticleTexToReadFrom()->Unbind();
 }

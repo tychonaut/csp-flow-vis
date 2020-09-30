@@ -273,7 +273,7 @@ ProxyEllipsoid::~ProxyEllipsoid() {
 
 void ProxyEllipsoid::update(double tTime, cs::scene::CelestialObserver const& oObs) {
   
-  logger().debug("ProxyEllipsoid::update at time " + std::to_string(tTime));
+  //logger().debug("ProxyEllipsoid::update at time " + std::to_string(tTime));
 
   CelestialObject::update(tTime, oObs);
 
@@ -327,8 +327,8 @@ bool ProxyEllipsoid::Do() {
     initShader();
   }
 
-
-  mFlowRenderer->seedParticleTexture();
+  //test omission
+  //mFlowRenderer->seedParticleTexture();
   mFlowRenderer->renderParticleAnimation();
 
 
