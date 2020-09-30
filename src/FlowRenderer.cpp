@@ -5,6 +5,8 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #include "FlowRenderer.hpp"
+#include "logger.hpp"
+
 
 #include "../../../src/cs-utils/utils.hpp"
 
@@ -21,7 +23,8 @@
 
 #include <tiffio.h>
 #include <utility>
-#include "logger.hpp"
+
+
 
 namespace csp::flowvis {
 
@@ -131,6 +134,10 @@ void FlowRenderer::initParticleTextures() {
 
   glFlush();
 
+
+  // seed the RNG for reproducability on each cluster node
+  mRNG.seed(mSeedval);
+
   seedParticleTexture();
 
 }
@@ -138,12 +145,13 @@ void FlowRenderer::initParticleTextures() {
 void FlowRenderer::seedParticleTexture() {
   
   // hack in order so not update every frame;
-  static int delay = 0;
-  if (delay < 60) {
-    delay++;
-    return;
+  static int currentSeedCycleTime = 0;
+  const int  numFramesBetweenReseed = 60;
+  if (currentSeedCycleTime >= numFramesBetweenReseed) {
+    currentSeedCycleTime = 0;
   } else {
-    delay = 0;
+    currentSeedCycleTime++;
+    return;
   }
 
   glFlush();
@@ -155,23 +163,33 @@ void FlowRenderer::seedParticleTexture() {
 
   glFlush();
 
-  // put some new random black&white dots into the texture:
-  GLfloat currentRandomValue = 0.0f;
-  const GLuint numCells           = mImageWidth * mImageHeight;
-  for (GLuint currentCell = 0; currentCell < numCells; currentCell++) {
-    // in [0..1]
-    currentRandomValue = static_cast<GLfloat>(rand()) / static_cast<GLfloat>(RAND_MAX);
+  const GLint                        numCells = mImageWidth * mImageHeight;
+  std::uniform_int_distribution<rng_type::result_type> udist(0, numCells -1);
 
-    // if close to zero or one (defined by user via particleSeedThreshold),
-    // then black (0.0) or white (1.0), respectively
-    mSeedTextureHostData[currentCell] = 0.5;
-    if (currentRandomValue < mPluginSettings->mParticleSeedThreshold) {
-      mSeedTextureHostData[currentCell] = 0.0;
-    }
-    if (currentRandomValue > (1.0 - mPluginSettings->mParticleSeedThreshold)) {
-      mSeedTextureHostData[currentCell] = 1.0;
-    }
+  const GLint numNewParticles =
+      static_cast <GLint>(static_cast<float>(numCells) * mPluginSettings->mParticleSeedThreshold);
+  //seed to random locations:
+  for (size_t i = 0; i < numNewParticles; i++) {
+    mSeedTextureHostData[udist(mRNG)] = 0.0;
+    mSeedTextureHostData[udist(mRNG)] = 1.0;
   }
+
+  //// put some new random black&white dots into the texture:
+  //GLfloat currentRandomValue = 0.0f;
+  //for (GLuint currentCell = 0; currentCell < numCells; currentCell++) {
+  //  // in [0..1]
+  //  currentRandomValue = static_cast<GLfloat>(rand()) / static_cast<GLfloat>(RAND_MAX);
+
+  //  // if close to zero or one (defined by user via particleSeedThreshold),
+  //  // then black (0.0) or white (1.0), respectively
+  //  mSeedTextureHostData[currentCell] = 0.5;
+  //  if (currentRandomValue < mPluginSettings->mParticleSeedThreshold) {
+  //    mSeedTextureHostData[currentCell] = 0.0;
+  //  }
+  //  if (currentRandomValue > (1.0 - mPluginSettings->mParticleSeedThreshold)) {
+  //    mSeedTextureHostData[currentCell] = 1.0;
+  //  }
+  //}
 
   glFlush();
 

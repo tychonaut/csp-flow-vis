@@ -7,8 +7,8 @@
 #ifndef CSP_FLOW_VIS_FLOW_RENDERER_HPP
 #define CSP_FLOW_VIS_FLOW_RENDERER_HPP
 
-#include <memory>
-#include <string>
+#include "Plugin.hpp"
+
 
 //#include <VistaKernel/GraphicsManager/VistaOpenGLDraw.h>
 #include <VistaKernel/GraphicsManager/VistaOpenGLNode.h>
@@ -18,7 +18,10 @@
 #include <VistaOGLExt/VistaTexture.h>
 #include <VistaOGLExt/VistaVertexArrayObject.h>
 
-#include "Plugin.hpp"
+#include <memory>
+#include <string>
+#include <random>
+
 
 namespace csp::flowvis {
 
@@ -127,6 +130,9 @@ class FlowRenderer {
   // eventually, noise will be calculated one the GPU,
   // but as a quaick hack, let's to it on CPU an then upload
   std::vector<GLfloat> mSeedTextureHostData;
+  typedef std::mt19937                                 rng_type;
+  rng_type                                             mRNG;
+  rng_type::result_type const                          mSeedval = 94761;
 
   VistaGLSLShader mSeedAndDisplaceParticlesShader;
   bool            mSeedAndDisplaceParticlesShaderDirty = true;
