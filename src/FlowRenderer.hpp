@@ -44,16 +44,49 @@ class FlowRenderer {
 
   virtual ~FlowRenderer() = default;
 
+
+  void update(double tTime);
+
+
   std::shared_ptr<VistaTexture> getVelocity3DTexture() const {
     return mVelocity3DTexture;
   }
 
- protected:
+  std::shared_ptr<VistaTexture> getCurrentRenderTarget() const {
+    return mParticlePingPongTexture[mCurrentRenderTargetIndex];
+  }
+  
+  std::shared_ptr<VistaTexture> getCurrentParticleTexToReadFrom() const {
+    return mParticlePingPongTexture[(mCurrentRenderTargetIndex + 1) % 2];
+  }
+
+  //justs hacks during refactoring:
+  double getCurrentTime() const {
+    return mCurrentTime;
+  }
+  double getLastVisualRenderTime() const {
+    return mLastVisualRenderTime;
+  }
+  void setLastVisualRenderTime(double v) {
+    mLastVisualRenderTime = v;
+  }
+
 
   // render routines:
-  void initParticleTexture();
-  // void reseedParticleTexture();
-  // void updateParticleTexture();
+ protected:  
+  void initParticleTextures();
+
+ public:
+  void seedParticleTexture();
+  void convectParticleTexture();
+
+ protected:
+
+  /// Configures the internal renderer according to the given values.
+  void loadVelocityTifFiles(std::string const& tifDirectory);
+
+  void togglePingPongTex();
+  
 
   std::shared_ptr<cs::core::Settings>   mProgramSettings;
   std::shared_ptr<cs::core::GuiManager> mGuiManager;
@@ -61,10 +94,17 @@ class FlowRenderer {
 
 
   //------------------------------------
-  // Velocity vectors stuff:
+  // Velocity vectors/"simulation" stuff:
 
   //handle to velocity data from plugin
+  GLuint                       mImageWidth  = 0;
+  GLuint                       mImageHeight = 0;
   std::shared_ptr<VistaTexture> mVelocity3DTexture;
+
+  double                        mCurrentTime;
+  // needed fordifference building, for FPS-independent animation speed
+  double                        mLastVisualRenderTime;
+
 
   //------------------------------------
   // Particle texture stuff:
@@ -80,8 +120,13 @@ class FlowRenderer {
 
   // offscreen render target:
   VistaFramebufferObj           mFBO;
-  GLuint                        currentRenderTargetIndex = 0;
+  GLuint                        mCurrentRenderTargetIndex = 0;
   std::shared_ptr<VistaTexture> mParticlePingPongTexture[2];
+
+  std::shared_ptr<VistaTexture> mSeedTexture;
+  // eventually, noise will be calculated one the GPU,
+  // but as a quaick hack, let's to it on CPU an then upload
+  std::vector<GLfloat> mSeedTextureHostData;
 
   VistaGLSLShader mSeedAndDisplaceParticlesShader;
   bool            mSeedAndDisplaceParticlesShaderDirty = true;

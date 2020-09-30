@@ -10,9 +10,10 @@
 
 #include "../../../src/cs-core/Settings.hpp"
 #include "../../../src/cs-core/SolarSystem.hpp"
-#include "../../../src/cs-graphics/TextureLoader.hpp"
+
 #include "../../../src/cs-utils/FrameTimings.hpp"
-#include "../../../src/cs-utils/convert.hpp"
+
+#include "../../../src/cs-graphics/TextureLoader.hpp"
 #include "../../../src/cs-utils/utils.hpp"
 #include "../../../src/cs-utils/convert.hpp"
 
@@ -91,6 +92,15 @@ const char* ProxyEllipsoid::SPHERE_FRAG = R"(
 uniform vec3 uSunDirection;
 uniform vec4 uBounds;
 
+// The least recently updated "random particle ping-pong image".
+// (The other one is the current render target.)
+uniform sampler2D uParticlesImage;
+
+uniform float uAmbientBrightness;
+uniform float uSunIlluminance;
+uniform float uFarClip;
+
+//{ TODO remove this and outsource this and its logic to FlowRenderer!
 //interpolatable stack of 2D textures == 2D + time dimension == 2+1 D == 3D
 uniform sampler3D uVelocity3DTexture;
 uniform float     uNumTimeSteps;
@@ -100,16 +110,8 @@ uniform float     uRelativeTime;
 uniform float     uDurationSinceLastFrame;
 // non-physical, user-definable scale factor in order to make the flow speeds visually distinguishable
 uniform float     uFlowSpeedScale;
+//}
 
-// The least recently updated "random particle ping-pong image".
-// (The other one is the current render target.)
-uniform sampler2D uParticlesImage;
-
-uniform sampler2D uVelocity2DTexture;
-
-uniform float uAmbientBrightness;
-uniform float uSunIlluminance;
-uniform float uFarClip;
 
 // inputs
 in vec3 vNormal;
@@ -131,38 +133,34 @@ void main()
     if (vLngLat.x < uBounds.w || vLngLat.x > uBounds.y || vLngLat.y > uBounds.x || vLngLat.y < uBounds.z) {
       discard;
     }
-
-    //vec2 texcoords = vec2((vLngLat.x - uBounds.w) / (uBounds.y - uBounds.w),
-    //                  1 - (vLngLat.y - uBounds.z) / (uBounds.x - uBounds.z));
-    //oColor = texture(uVelocity2DTexture, texcoords).rgb;
     
     vec3 texcoords = vec3((vLngLat.x - uBounds.w) / (uBounds.y - uBounds.w),
                       1 - (vLngLat.y - uBounds.z) / (uBounds.x - uBounds.z),
                       //uNumTimeSteps * uRelativeTime);
                       uRelativeTime);
                       
-    //uRelativeTime
     oColor = texture(uVelocity3DTexture, texcoords).rgb;
 
+    oColor.b = texture(uParticlesImage, texcoords.xy).r;
+
+    
+
     oColor.rg = (oColor.rg/4) + 0.25;
-    oColor.b = (oColor.b/30);
+    //oColor.b = (oColor.b/30);
+
 
     #ifdef ENABLE_HDR
       oColor = SRGBtoLINEAR(oColor);
     #endif
 
     //oColor = oColor * uSunIlluminance;
-
     //#ifdef ENABLE_LIGHTING
     //  vec3 normal = normalize(vNormal);
     //  float light = max(dot(normal, uSunDirection), 0.0);
     //  oColor = mix(oColor*uAmbientBrightness, oColor, light);
     //#endif
 
-    float epsilon = -0.01;
-    //float epsilon = 0.00;
-    //gl_FragDepth = clamp( (length(vPosition) / uFarClip) + epsilon, 0.0, 1.0);
-    gl_FragDepth = (length(vPosition) / uFarClip) + epsilon;
+    gl_FragDepth = (length(vPosition) / uFarClip) ;
 
     float multiplier = 1.0;
     gl_FragDepth = (length(vPosition) / uFarClip) * multiplier;
@@ -182,36 +180,31 @@ ProxyEllipsoid::ProxyEllipsoid(std::shared_ptr<cs::core::Settings> programSettin
     cs::scene::CelestialObject(sCenterName, sFrameName)
     , mProgramSettings(std::move(programSettings))
     , mPluginSettings(std::move(pluginSettings))
-    , mGuiManager(pGuiManager)
+    , mGuiManager(std::move(pGuiManager))
     , mSolarSystem(std::move(solarSystem))
     , mRadii(cs::core::SolarSystem::getRadii(sCenterName))
     , mBounds(glm::vec4(0.0f, 0.0f, 0.0f, 0.0f))
-    //TODO check for consitency with program startup:
-    //dummy value:
-    , mCurrentTime(cs::utils::convert::time::toSpice(mPluginSettings->mStartDate)) 
-    , mLastVisualRenderTime(cs::utils::convert::time::toSpice(mPluginSettings->mStartDate))
+    //, mCurrentTime(cs::utils::convert::time::toSpice(mPluginSettings->mStartDate)) 
+    //, mLastVisualRenderTime(cs::utils::convert::time::toSpice(mPluginSettings->mStartDate))
 
 {
   initEllipsoidGeometry();
 
+     
   setStartDate(mPluginSettings->mStartDate);
   setEndDate(mPluginSettings->mEndDate);
+  
   setBounds(glm::vec4(mPluginSettings->mNorth, mPluginSettings->mEast,
       mPluginSettings->mSouth, mPluginSettings->mWest));
   setSun(mSolarSystem->getSun());
 
 
-
-  //TODO outsource to FlowRenderer
-  loadVelocityTifFiles(mPluginSettings->mTifDirectory);
-
-
-  mFlowRenderer = std::make_unique<FlowRenderer>(programSettings, pluginSettings, pGuiManager);
-
+  mFlowRenderer = std::make_unique<FlowRenderer>(mProgramSettings, mPluginSettings, mGuiManager);
 
 }
 
 void ProxyEllipsoid::initEllipsoidGeometry() {
+
   pVisibleRadius = mRadii[0];
 
   // For rendering the sphere, we create a 2D-grid which is warped into a sphere in the vertex
@@ -284,164 +277,11 @@ void ProxyEllipsoid::update(double tTime, cs::scene::CelestialObserver const& oO
 
   CelestialObject::update(tTime, oObs);
 
-  mCurrentTime = tTime;
+  mFlowRenderer->update(tTime);
 
 }
 
-////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// return:(width, height, numchanelsPerPixel, numBitsPerPixelAndChannel)
-glm::u32vec4 getTifParams(std::string filepath) {
-
-  auto* data = TIFFOpen(filepath.c_str(), "r");
-  if (!data) {
-    logger().error("Failed to load GeoTiff '" + filepath + "'!");
-    return glm::u32vec4(0, 0, 0, 0);
-  } else {
-    logger().info("Read GeoTiff '" + filepath + "'");
-  }
-
-  uint32 width{};
-  uint32 height{};
-  uint32 numChannelsPerPixel{};
-  uint32 bpp{};
-  TIFFGetField(data, TIFFTAG_IMAGEWIDTH, &width);
-  TIFFGetField(data, TIFFTAG_IMAGELENGTH, &height);
-  TIFFGetField(data, TIFFTAG_SAMPLESPERPIXEL, &numChannelsPerPixel);
-  TIFFGetField(data, TIFFTAG_BITSPERSAMPLE, &bpp);
-
-  logger().info(
-      "GeoTiff: filepath: {}, width: {}, height: {}, numChannelsPerPixel: {}, bpp: {}", 
-       filepath, width, height, numChannelsPerPixel, bpp);
-
-  TIFFClose(data);
-
-  if (bpp != 8 * sizeof(GLfloat)) 
-  {
-    logger().error("GeoTiff has not 32 bits per pixel!");
-  }
-   
-  return glm::u32vec4(width, height, numChannelsPerPixel, bpp);
-}
-
-void ProxyEllipsoid::loadVelocityTifFiles(std::string const& tifDirectory) {
-
-  assert(mVelocity2DTextureArray.empty());
-  mVelocity2DTextureArray.clear();
-
-  //init 3D texture
-  glEnable(GL_TEXTURE_3D);
-  mVelocity3DTexture = std::make_unique<VistaTexture>(GL_TEXTURE_3D);
-  
-  auto firstFilePath = tifDirectory + "/step_1.tif";
-  const glm::u32vec4  firstTifMeta              = getTifParams(firstFilePath);
-  const uint32        width                     = firstTifMeta.x;
-  const uint32        height                    = firstTifMeta.y;
-  const uint32        numChannels               = firstTifMeta.z;
-  const uint32        numBitsPerPixelAndChannel = firstTifMeta.w;
-
-  std::vector<float> pixels3D(
-      mPluginSettings->mNumTimeSteps * width * height * numChannels);
-
-
-  //for (int timestep = 0; timestep < mNumTimeSteps; timestep++) {
-  // TODO investigate why no 0 is spit out by the resampling scpripts
-  for (int timestep = 1; timestep <= mPluginSettings->mNumTimeSteps; timestep++) {
-
-    auto currentFilePath = tifDirectory + "/step_" + std::to_string(timestep) + ".tif";
-
-    auto* data = TIFFOpen(currentFilePath.c_str(), "r");
-    if (!data) {
-      logger().error("Failed to load GeoTiff '" + currentFilePath + "'!");
-      return;
-    } else {
-      logger().info("Read GeoTiff '" + currentFilePath + "'");
-    }
-
-    const glm::u32vec4 currentTifMeta = getTifParams(currentFilePath);
-    if (currentTifMeta != firstTifMeta) {
-      logger().error("Tif meta data differ amongst each other!");
-    }
-
-    int currenImage2DIndex = (timestep - 1) * width * height * numChannels;
-
-    //std::vector<float> pixels2D(width * height * numChannels);
-
-    for (unsigned y = 0; y < height; y++) {
-      //if (TIFFReadScanline(data, &pixels2D[width * channels * y], y) < 0) {
-      if (TIFFReadScanline(data, &pixels3D[currenImage2DIndex + width * y * numChannels], y) < 0) {
-        logger().error("Failed to read tif!");
-      }
-    }
-    logger().info("{} {}", width, height);
-
-
-
-    mVelocity2DTextureArray.push_back(std::make_unique<VistaTexture>(GL_TEXTURE_2D));
-    mVelocity2DTextureArray.back()->Bind();
-
-    //gluBuild2DMipmaps(GL_TEXTURE_2D, GL_RGBA32F, width, height, GL_RGB, GL_FLOAT, pixels2D.data());
-    gluBuild2DMipmaps(
-        GL_TEXTURE_2D, GL_RGBA32F, width, height, GL_RGB, GL_FLOAT, &pixels3D[currenImage2DIndex]);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-
-    mVelocity2DTextureArray.back()->Unbind();
-
-    TIFFClose(data);
-
-  }
-
-
-  mVelocity3DTexture->Bind();
-  glTexImage3D(GL_TEXTURE_3D, 0, GL_RGBA32F, width, height, mPluginSettings->mNumTimeSteps, 0,
-      GL_RGB, GL_FLOAT, pixels3D.data());
-  glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-  mVelocity3DTexture->Unbind();
-
-  /*
-
-  mVectorTexture = std::make_unique<VistaTexture>(GL_TEXTURE_2D);
-  mVectorTexture->Bind();
-
-
-
-
-
-  auto* data = TIFFOpen((tifDirectory + "/step_1.tif").c_str(), "r");
-  if (!data) {
-    logger().error("Failed to load with libtiff!");
-    return;
-  }
-
-  uint32 width{};
-  uint32 height{};
-  TIFFGetField(data, TIFFTAG_IMAGELENGTH, &height);
-  TIFFGetField(data, TIFFTAG_IMAGEWIDTH, &width);
-
-  uint16 bpp{};
-  TIFFGetField(data, TIFFTAG_BITSPERSAMPLE, &bpp);
-
-  int16 channels{};
-  TIFFGetField(data, TIFFTAG_SAMPLESPERPIXEL, &channels);
-
-  std::vector<float> pixels(width * height * channels);
-
-  for (unsigned y = 0; y < height; y++) {
-    if (TIFFReadScanline(data, &pixels[width * channels * y], y) < 0) {
-      logger().error("Failed to read tif!");
-    }
-  }
-  logger().info("{} {}", width, height);
-
-  gluBuild2DMipmaps(GL_TEXTURE_2D, GL_RGBA32F, width, height, GL_RGB, GL_FLOAT, pixels.data());
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-
-  TIFFClose(data);
-  mVectorTexture->Unbind();
-
-  */
-
-}
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -471,108 +311,29 @@ void ProxyEllipsoid::setSun(std::shared_ptr<const cs::scene::CelestialObject> co
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 bool ProxyEllipsoid::Do() {
+
   if (!getIsInExistence() || !pVisible.get()) {
     return true;
   }
 
   // reported 16384 on Quadro RTX 5000; Should be enough for 2700x2700x73;
-  GLint maxTexSize = 0;
-  glGetIntegerv(GL_MAX_3D_TEXTURE_SIZE, & maxTexSize );
-  logger().debug("maxTexSize: " + std::to_string(maxTexSize));
+  //GLint maxTexSize = 0;
+  //glGetIntegerv(GL_MAX_3D_TEXTURE_SIZE, & maxTexSize );
+  //logger().debug("maxTexSize: " + std::to_string(maxTexSize));
 
   cs::utils::FrameTimings::ScopedTimer timer("Flow Vis");
 
   if (mShowParticleTexOnSphereShaderDirty) {
-    mShowParticleTexOnSphereShader = VistaGLSLShader();
-
-    // (Re-)create sphere shader.
-    std::string defines = "#version 330\n";
-
-    if (mProgramSettings->mGraphics.pEnableHDR.get()) {
-      defines += "#define ENABLE_HDR\n";
-    }
-
-    if (mProgramSettings->mGraphics.pEnableLighting.get()) {
-      defines += "#define ENABLE_LIGHTING\n";
-    }
-
-    mShowParticleTexOnSphereShader.InitVertexShaderFromString(defines + SPHERE_VERT);
-    mShowParticleTexOnSphereShader.InitFragmentShaderFromString(defines + SPHERE_FRAG);
-    mShowParticleTexOnSphereShader.Link();
-
-    mShowParticleTexOnSphereShaderDirty = false;
+    initShader();
   }
 
-  mShowParticleTexOnSphereShader.Bind();
 
-  glm::vec3 sunDirection(1, 0, 0);
-  float     sunIlluminance(1.F);
-  float     ambientBrightness(mProgramSettings->mGraphics.pAmbientBrightness.get());
-
-  if (mSun) {
-    // For all other bodies we can use the utility methods from the SolarSystem.
-    if (mProgramSettings->mGraphics.pEnableHDR.get()) {
-      sunIlluminance = static_cast<float>(mSolarSystem->getSunIlluminance(getWorldTransform()[3]));
-    }
-    sunDirection = mSolarSystem->getSunDirection(getWorldTransform()[3]);
-  }
-
-  mShowParticleTexOnSphereShader.SetUniform(mShowParticleTexOnSphereShader.GetUniformLocation("uSunDirection"), sunDirection[0], sunDirection[1],
-      sunDirection[2]);
-  mShowParticleTexOnSphereShader.SetUniform(mShowParticleTexOnSphereShader.GetUniformLocation("uSunIlluminance"), sunIlluminance);
-  mShowParticleTexOnSphereShader.SetUniform(mShowParticleTexOnSphereShader.GetUniformLocation("uAmbientBrightness"), ambientBrightness);
-
-  // Get modelview and projection matrices.
-  std::array<GLfloat, 16> glMatMV{};
-  std::array<GLfloat, 16> glMatP{};
-  glGetFloatv(GL_MODELVIEW_MATRIX, glMatMV.data());
-  glGetFloatv(GL_PROJECTION_MATRIX, glMatP.data());
-  auto matMV = glm::make_mat4x4(glMatMV.data()) * glm::mat4(getWorldTransform());
-  glUniformMatrix4fv(
-      mShowParticleTexOnSphereShader.GetUniformLocation("uMatModelView"), 1, GL_FALSE, glm::value_ptr(matMV));
-  glUniformMatrix4fv(mShowParticleTexOnSphereShader.GetUniformLocation("uMatProjection"), 1, GL_FALSE, glMatP.data());
-
-  mShowParticleTexOnSphereShader.SetUniform(mShowParticleTexOnSphereShader.GetUniformLocation("uRadii"), static_cast<float>(mRadii[0]),
-      static_cast<float>(mRadii[1]), static_cast<float>(mRadii[2]));
-  mShowParticleTexOnSphereShader.SetUniform(mShowParticleTexOnSphereShader.GetUniformLocation("uBounds"),
-      cs::utils::convert::toRadians(mBounds[0]), cs::utils::convert::toRadians(mBounds[1]),
-      cs::utils::convert::toRadians(mBounds[2]), cs::utils::convert::toRadians(mBounds[3]));
-  mShowParticleTexOnSphereShader.SetUniform(
-      mShowParticleTexOnSphereShader.GetUniformLocation("uFarClip"), cs::utils::getCurrentFarClipDistance());
-
-  mShowParticleTexOnSphereShader.SetUniform(
-      mShowParticleTexOnSphereShader.GetUniformLocation("uNumTimeSteps"), static_cast<float>(mPluginSettings->mNumTimeSteps));
-  
-
-  // in [0..1]
-  double relativeTime = ( (mCurrentTime - mStartExistence)) / (mEndExistence - mStartExistence);
-  mShowParticleTexOnSphereShader.SetUniform(mShowParticleTexOnSphereShader.GetUniformLocation("uRelativeTime"), 
-      static_cast<float>(relativeTime));
-
-  double uDurationSinceLastFrame = mCurrentTime - mLastVisualRenderTime;
-  mShowParticleTexOnSphereShader.SetUniform(
-      mShowParticleTexOnSphereShader.GetUniformLocation("uDurationSinceLastFrame"),
-      static_cast<float>(uDurationSinceLastFrame));
-
-   mShowParticleTexOnSphereShader.SetUniform(
-      mShowParticleTexOnSphereShader.GetUniformLocation("uFlowSpeedScale"),
-      static_cast<float>(mPluginSettings->mFlowSpeedScale));
+  mFlowRenderer->seedParticleTexture();
+  mFlowRenderer->convectParticleTexture();
 
 
-  
-  
-  // 2D velocity tex; will be obsolete soon...
-  mShowParticleTexOnSphereShader.SetUniform(mShowParticleTexOnSphereShader.GetUniformLocation("uVelocity2DTexture"), 0);
-  int currentTextureIndex = std::clamp(
-      static_cast<int>(
-          std::floor(relativeTime * static_cast<double>(mPluginSettings->mNumTimeSteps))),
-      0, mPluginSettings->mNumTimeSteps - 1); 
-  mVelocity2DTextureArray[currentTextureIndex]->Bind(GL_TEXTURE0);
 
-  // 3D texture:
-  mShowParticleTexOnSphereShader.SetUniform(mShowParticleTexOnSphereShader.GetUniformLocation("uVelocity3DTexture"), 1);
-  mVelocity3DTexture->Bind(GL_TEXTURE1);
-
+  setShaderUniforms();
 
   // Draw.
   mSphereVAO.Bind();
@@ -581,14 +342,117 @@ bool ProxyEllipsoid::Do() {
   mSphereVAO.Release();
 
   // Clean up.
-  mVelocity2DTextureArray[currentTextureIndex]->Unbind(GL_TEXTURE0);
-  mVelocity3DTexture->Unbind(GL_TEXTURE1);
+  mFlowRenderer->getCurrentParticleTexToReadFrom()->Unbind(GL_TEXTURE0);
+  mFlowRenderer->getVelocity3DTexture()->Unbind(GL_TEXTURE1);
+
   mShowParticleTexOnSphereShader.Release();
 
   //update time for "last frame"
-  mLastVisualRenderTime = mCurrentTime;
+  //mLastVisualRenderTime = mCurrentTime;
+  mFlowRenderer->setLastVisualRenderTime(mFlowRenderer->getCurrentTime());
 
   return true;
+}
+
+void ProxyEllipsoid::setShaderUniforms() {
+
+  mShowParticleTexOnSphereShader.Bind();
+
+  glm::vec3 sunDirection(1, 0, 0);
+  float     sunIlluminance(1.F);
+  float     ambientBrightness(mProgramSettings->mGraphics.pAmbientBrightness.get());
+  if (mSun) {
+    // For all other bodies we can use the utility methods from the SolarSystem.
+    if (mProgramSettings->mGraphics.pEnableHDR.get()) {
+      sunIlluminance = static_cast<float>(mSolarSystem->getSunIlluminance(getWorldTransform()[3]));
+    }
+    sunDirection = mSolarSystem->getSunDirection(getWorldTransform()[3]);
+  }
+  mShowParticleTexOnSphereShader.SetUniform(
+      mShowParticleTexOnSphereShader.GetUniformLocation("uSunDirection"), sunDirection[0],
+      sunDirection[1], sunDirection[2]);
+  mShowParticleTexOnSphereShader.SetUniform(
+      mShowParticleTexOnSphereShader.GetUniformLocation("uSunIlluminance"), sunIlluminance);
+  mShowParticleTexOnSphereShader.SetUniform(
+      mShowParticleTexOnSphereShader.GetUniformLocation("uAmbientBrightness"), ambientBrightness);
+
+  mShowParticleTexOnSphereShader.SetUniform(
+      mShowParticleTexOnSphereShader.GetUniformLocation("uRadii"), static_cast<float>(mRadii[0]),
+      static_cast<float>(mRadii[1]), static_cast<float>(mRadii[2]));
+  mShowParticleTexOnSphereShader.SetUniform(
+      mShowParticleTexOnSphereShader.GetUniformLocation("uBounds"),
+      cs::utils::convert::toRadians(mBounds[0]), cs::utils::convert::toRadians(mBounds[1]),
+      cs::utils::convert::toRadians(mBounds[2]), cs::utils::convert::toRadians(mBounds[3]));
+  mShowParticleTexOnSphereShader.SetUniform(
+      mShowParticleTexOnSphereShader.GetUniformLocation("uFarClip"),
+      cs::utils::getCurrentFarClipDistance());
+
+  // Get modelview and projection matrices.
+  std::array<GLfloat, 16> glMatMV{};
+  std::array<GLfloat, 16> glMatP{};
+  glGetFloatv(GL_MODELVIEW_MATRIX, glMatMV.data());
+  glGetFloatv(GL_PROJECTION_MATRIX, glMatP.data());
+  auto matMV = glm::make_mat4x4(glMatMV.data()) * glm::mat4(getWorldTransform());
+  glUniformMatrix4fv(mShowParticleTexOnSphereShader.GetUniformLocation("uMatModelView"), 1,
+      GL_FALSE, glm::value_ptr(matMV));
+  glUniformMatrix4fv(mShowParticleTexOnSphereShader.GetUniformLocation("uMatProjection"), 1,
+      GL_FALSE, glMatP.data());
+
+  // should become obsolete soon, TODO remove
+  mShowParticleTexOnSphereShader.SetUniform(
+      mShowParticleTexOnSphereShader.GetUniformLocation("uNumTimeSteps"),
+      static_cast<float>(mPluginSettings->mNumTimeSteps));
+
+  // TODO outsource this logic to FlowRenderer
+  // in [0..1]
+  double relativeTime =
+      (mFlowRenderer->getCurrentTime() - mStartExistence) / (mEndExistence - mStartExistence);
+  mShowParticleTexOnSphereShader.SetUniform(
+      mShowParticleTexOnSphereShader.GetUniformLocation("uRelativeTime"),
+      static_cast<float>(relativeTime));
+
+  double uDurationSinceLastFrame =
+      mFlowRenderer->getCurrentTime() - mFlowRenderer->getLastVisualRenderTime();
+  mShowParticleTexOnSphereShader.SetUniform(
+      mShowParticleTexOnSphereShader.GetUniformLocation("uDurationSinceLastFrame"),
+      static_cast<float>(uDurationSinceLastFrame));
+
+  mShowParticleTexOnSphereShader.SetUniform(
+      mShowParticleTexOnSphereShader.GetUniformLocation("uFlowSpeedScale"),
+      static_cast<float>(mPluginSettings->mFlowSpeedScale));
+
+  //uParticlesImage
+  mShowParticleTexOnSphereShader.SetUniform(
+      mShowParticleTexOnSphereShader.GetUniformLocation("uParticlesImage"), 0);
+  mFlowRenderer->getCurrentParticleTexToReadFrom()->Bind(GL_TEXTURE0);
+
+  // 3D texture:
+  mShowParticleTexOnSphereShader.SetUniform(
+      mShowParticleTexOnSphereShader.GetUniformLocation("uVelocity3DTexture"), 1);
+  mFlowRenderer->getVelocity3DTexture()->Bind(GL_TEXTURE1);
+}
+
+
+
+void ProxyEllipsoid::initShader() {
+  mShowParticleTexOnSphereShader = VistaGLSLShader();
+
+  // (Re-)create sphere shader.
+  std::string defines = "#version 330\n";
+
+  if (mProgramSettings->mGraphics.pEnableHDR.get()) {
+    defines += "#define ENABLE_HDR\n";
+  }
+
+  if (mProgramSettings->mGraphics.pEnableLighting.get()) {
+    defines += "#define ENABLE_LIGHTING\n";
+  }
+
+  mShowParticleTexOnSphereShader.InitVertexShaderFromString(defines + SPHERE_VERT);
+  mShowParticleTexOnSphereShader.InitFragmentShaderFromString(defines + SPHERE_FRAG);
+  mShowParticleTexOnSphereShader.Link();
+
+  mShowParticleTexOnSphereShaderDirty = false;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////

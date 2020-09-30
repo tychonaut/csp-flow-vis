@@ -60,8 +60,7 @@ class ProxyEllipsoid : public cs::scene::CelestialObject, public IVistaOpenGLDra
 
   void update(double tTime, cs::scene::CelestialObserver const& oObs) override;
 
-  /// Configures the internal renderer according to the given values.
-  void loadVelocityTifFiles(std::string const& tifDirectory);
+
   void setStartDate(std::string const& startDate);
   void setEndDate(std::string const& endDate);
   void setBounds(glm::vec4 const& bounds);
@@ -72,6 +71,8 @@ class ProxyEllipsoid : public cs::scene::CelestialObject, public IVistaOpenGLDra
 
   /// Interface implementation of IVistaOpenGLDraw.
   bool Do() override;
+  void setShaderUniforms();
+  void initShader();
   bool GetBoundingBox(VistaBoundingBox& bb) override;
 
  private:
@@ -122,13 +123,13 @@ class ProxyEllipsoid : public cs::scene::CelestialObject, public IVistaOpenGLDra
 
 
   // TODO delete 2D texture
-  std::vector<std::unique_ptr<VistaTexture> > mVelocity2DTextureArray;
+  //std::vector<std::unique_ptr<VistaTexture> > mVelocity2DTextureArray;
 
-  //TODO outsource to FlowRenderer
-  double mCurrentTime;
-  // needed fordifference building, for FPS-independent animation speed
-  double                        mLastVisualRenderTime;
-  std::shared_ptr<VistaTexture> mVelocity3DTexture;
+  ////TODO outsource to FlowRenderer
+  //double mCurrentTime;
+  //// needed fordifference building, for FPS-independent animation speed
+  //double                        mLastVisualRenderTime;
+  //std::shared_ptr<VistaTexture> mVelocity3DTexture;
 
 };
 
