@@ -33,8 +33,11 @@ namespace csp::flowvis {
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-const uint32_t GRID_RESOLUTION_X = 200;
-const uint32_t GRID_RESOLUTION_Y = 100;
+//const uint32_t GRID_RESOLUTION_X = 200;
+//const uint32_t GRID_RESOLUTION_Y = 100;
+
+ const uint32_t GRID_RESOLUTION_X = 800;
+ const uint32_t GRID_RESOLUTION_Y = 400;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -142,6 +145,14 @@ void main()
     vec2 vel = texture(uVelocity3DTexture, texcoords).rg;
     float speed = length(vel.xy);
 
+    //make areas completely transparent where nothing is convected
+    // workaround for maskin land and undefined areas
+    if(speed < 0.0005)
+    {
+        //oColor.a = 0.0;
+        discard;
+    }
+
     float scaledTemperature = texture(uVelocity3DTexture, texcoords).b / 32.0;
 
     //debug draw
@@ -161,6 +172,8 @@ void main()
     
     //some transparency
     oColor.a = 0.375;
+
+    
 
 
     #ifdef ENABLE_HDR
@@ -196,7 +209,11 @@ ProxyEllipsoid::ProxyEllipsoid(std::shared_ptr<cs::core::Settings> programSettin
     , mPluginSettings(std::move(pluginSettings))
     , mGuiManager(std::move(pGuiManager))
     , mSolarSystem(std::move(solarSystem))
-    , mRadii(cs::core::SolarSystem::getRadii(sCenterName))
+    , mRadii(cs::core::SolarSystem::getRadii(sCenterName) 
+        //hack: make sphere bigger in order to overlap shelf regions 
+        // of lod-body-plugin
+        //+ glm::dvec3(5000.0))
+        * 1.0015)
     , mBounds(glm::vec4(0.0f, 0.0f, 0.0f, 0.0f))
     //, mCurrentTime(cs::utils::convert::time::toSpice(mPluginSettings->mStartDate)) 
     //, mLastVisualRenderTime(cs::utils::convert::time::toSpice(mPluginSettings->mStartDate))
