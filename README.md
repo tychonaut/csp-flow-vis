@@ -24,6 +24,7 @@ TODOs after demo:
         orientation of vectors on sphere, 
         units the vectors encode (meters/second?), 
         correct relative velocities on each point on the sphere, 
+        strange apparent bias for horiz/vertical flow ("tiling"): discretization artifacts or visualization error?
       - routines to establish correctness,
       - provision of 3+1D data (ask supervisor which datasets)
 
