@@ -17,11 +17,13 @@ TODOs after demo:
 - [x] upload unlisted youtube video of dome presentation
 - [x] make this list
 - [x] clean up worst mess behind me: browser and text file tabs, update VS etc.
-- [ ] check how to best integrate a screenshot into this MD file
+- [x] check how to best integrate a screenshot into MD file
+- [x] mirror to public github repository
 
-- [ ] ask administration about working times
-- [ ] thank DLR guys for their support so far, send screenshot and youtube video (ask supervisor for permission first), 
-      ask about xbox controller support for CSVR
+- [x] ask administration about working times
+- [x] thank DLR guys for their support so far, send screenshot and youtube video (ask supervisor for permission first), 
+      ask about xbox controller support for CSVR, GUI
+- [x] contact tat team about availability
 - [ ] thank Klaus & Torge for their support, show video, ask about:
 
       - correctness of my approach: 
@@ -34,7 +36,7 @@ TODOs after demo:
       - routines to establish correctness,
       - provision of 3+1D data (ask supervisor which datasets)
 
-- [ ] contact tat team about availability
+- [ ] more3D cluster mode: check out  doc & ideas
 
 - [ ] talk to supervisor about next steps and priorities: 
 
@@ -49,12 +51,10 @@ TODOs after demo:
       - Riccardo's Track plugin, data for it (AUVs, ROVs, fish swarms)
       - xbox wand + buttons --> ask simon for update, tat team @ intuitive controller,
       - another bathmetry dataset (GEBCO2020, GMRT?)
-
-- [ ] more3D cluster mode: check out  doc & ideas
-
+      - schedule meeting about future work modalidies: home and presence office etc.
 
 - [ ] make acquainted with GUI programming, maybe ask Simon for support
-
+- [ ] ...
 
 
 
