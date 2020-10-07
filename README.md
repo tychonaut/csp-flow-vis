@@ -1,6 +1,11 @@
 # csp-flow-vis
 
-Fluid flow visualization plugin for CosmoScoutVR
+Fluid flow visualization plugin for CosmoScoutVR.
+
+
+
+
+
 
 [Docs of main program](https://github.com/cosmoscout/cosmoscout-vr/tree/develop/docs)
 
@@ -27,29 +32,28 @@ TODO: for setup of infrastructure (saving Simon's local stuff to own forked and 
       to local installation folder, analogous to 
       `./appControl/rsyncAppConfigToCluster.sh CosmoScoutVR`
       extend existing script functionality, then create small wrapper script
-- [ ] set up visual studio code accourding to CS doc
+- [x] set up visual studio  accourding to CS doc
 
 TODO: recreate minimalistic initial plugin functionality that worked locally on Simon's ubuntu laptop:
-- [ ] check data-read-in of csp-flow-vis: point to D:\app_data\global\CosmoScoutVR\plugin-data\csp-flow-vis\flow-data-simon
+- [x] check data-read-in of csp-flow-vis: point to D:\app_data\global\CosmoScoutVR\plugin-data\csp-flow-vis\flow-data-simon
       via flow_vis.json -> deserialize -> ...
 - [x] check how to create plugin- local cmake and generate appropriate header and shared libs
-- [ ] remember/lookup how to use plugin in main app, how to configure stuff, where to put data used by plugin
+- [x] remember/lookup how to use plugin in main app, how to configure stuff, where to put data used by plugin
       (csp-flow-vis is dervied from csp-simple-bodies --> config json will be similar, look at source code)
-- [ ] run local test of plugin
-- [ ] develop mechanism (rsync or scp) to efficiently copy app asset/resource data from develop or master machine to cluster:
-       experiment with rsync-deletion-flags, maybe eventually NAS (though windows remote shell policies may be a problem) 
-- [ ] adapt cluster config for csp-flow-vis plugin
-- [ ] upload binaries and config to dome
-- [ ] test run in dome
-- [ ] checkout implications of correction from  
+- [x] run local test of plugin
+- [x] develop mechanism (rsync or scp) to efficiently copy app asset/resource data from develop or master machine to cluster:
+- [ ] experiment with rsync-deletion-flags, maybe eventually NAS (though windows remote shell policies may be a problem) 
+- [x] adapt cluster config for csp-flow-vis plugin
+- [x] upload binaries and config to dome
+- [x] test run in dome
+- [x] checkout implications of correction from  
       `gdaladdo step$STEP.tif 2 4 8` to 
       `gdaladdo step_$STEP.tif 2 4 8`: expecting mipmaps, elping in webservers, but not for opengl,
       which has to build its own mip maps, right?
 
-TODO: implement the actual functionality from the rough framework
-- [ ] determine specifi TODOs from insights gathered from above steps, then write this list
-- [ ] ...
-- [ ] test run in dome
+TODO: implement the actual flow visualization functionality from the rough framework
+- [x] implement first hacky prototype 
+- [x] test run in dome
 
 
 
@@ -65,13 +69,20 @@ This plugin can be enabled with the following configuration in your `settings.js
   "plugins": {
     ...
     "csp-flow-vis": {
-      "TODO...": {
-        <anchor name>: {
-          "texture": <path to surface texture>
-        },
-        ... <more bodies> ...
-      }
-    }
+	"isEnabled": true,
+	"tifDirectory": "D:/app_data/global/CosmoScoutVR/plugin-data/csp-flow-vis/flow-data-simon",
+	"anchor": "Earth",
+	"startDate": "2019-01-01 00:00:00.000",
+	"endDate": "2019-12-31 00:00:00.000",		
+	"west": -100.461669921875, 
+	"east": 32.311336517333984, 
+	"south": -33.9864501953125, 
+	"north": 69.38933563232422,
+	"numTimeSteps" : 72,
+	"flowSpeedScale" : 0.01,
+	"particleSeedThreshold": 0.001
+    },
+    ...
   }
 }
 ```
