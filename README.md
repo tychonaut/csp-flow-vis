@@ -19,7 +19,11 @@ TODOs after demo:
       ask about xbox controller support for CSVR
 - [ ] thank Klaus & Torge for their support, show video, ask about:
 
-      - correctness of my approach, 
+      - correctness of my approach: 
+        location of vectors on sphere, 
+        orientation of vectors on sphere, 
+        units the vectors encode (meters/second?), 
+        correct relative velocities on each point on the sphere, 
       - routines to establish correctness,
       - provision of 3+1D data (ask supervisor which datasets)
 
@@ -30,6 +34,7 @@ TODOs after demo:
       - more3d cluster mode
       - Correctness & color coding
       - performance optimization: (deterministic noise on GPU instead of readback-CPUnoise-upload), 
+      - different animation time scales: seconds vs weeks between animation frames; think about elegant resolution and interpolation
       - Cleanup & refactoring, 
       - useability optimization: State safe&restore,
       - useability optimization: GUI, 
