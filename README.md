@@ -2,6 +2,11 @@
 
 Fluid flow visualization plugin for CosmoScoutVR.
 
+<p align="center"> 
+  <img src ="resources/screenshots/csp-flow-vis_prototype1.png" />
+</p>
+
+
 
 [Docs of main program](https://github.com/cosmoscout/cosmoscout-vr/tree/develop/docs)
 
@@ -11,7 +16,7 @@ TODOs after demo:
 - [x] hack first 2+1D flow visualization prototype for demo
 - [x] upload unlisted youtube video of dome presentation
 - [x] make this list
-- [ ] clean up worst mess behind me: browser and text file tabs, update VS etc.
+- [x] clean up worst mess behind me: browser and text file tabs, update VS etc.
 - [ ] check how to best integrate a screenshot into this MD file
 
 - [ ] ask administration about working times
@@ -25,6 +30,7 @@ TODOs after demo:
         units the vectors encode (meters/second?), 
         correct relative velocities on each point on the sphere, 
         strange apparent bias for horiz/vertical flow ("tiling"): discretization artifacts or visualization error?
+        ellipsoid vs sphere
       - routines to establish correctness,
       - provision of 3+1D data (ask supervisor which datasets)
 
