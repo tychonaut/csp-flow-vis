@@ -3,7 +3,7 @@
 Fluid flow visualization plugin for CosmoScoutVR.
 
 <p align="center"> 
-  <img src ="resources/screenshots/csp-flow-vis_prototype1.png" />
+  <img src ="resources/screenshots/csp-flow-vis_prototype1_shot2.png" />
 </p>
 
 
