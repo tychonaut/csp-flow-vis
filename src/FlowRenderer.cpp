@@ -390,7 +390,7 @@ void FlowRenderer::seedParticleTexture() {
 
   //glFlush();
 
-  logger().debug("particle seeding #{}", currentSeedCycleTime);
+  //logger().debug("particle seeding #{}", currentSeedCycleTime);
 
   getCurrentParticleTexToReadFrom()->Bind();
 
